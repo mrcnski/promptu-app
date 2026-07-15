@@ -110,6 +110,10 @@ struct ComposerView: View {
         case .delete:
             session.removeLast()
             return .handled
+        // Backspace arrives as DEL (U+7F), not KeyEquivalent.delete (U+8).
+        case KeyEquivalent("\u{7F}"):
+            session.removeLast()
+            return .handled
         case .escape:
             dismiss()
             return .handled
