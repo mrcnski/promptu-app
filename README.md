@@ -12,6 +12,11 @@ The hotkey is a constant in `AppDelegate.swift` (`hotKeyCode` /
 `hotKeyModifiers`); it overrides the same combination in whatever app is
 focused, so pick one nothing else needs.
 
+The panel follows the system appearance: [Catppuccin
+Latte](https://catppuccin.com) in light mode,
+[Nimbus](https://github.com/mrcnski/nimbus-theme) in dark mode
+(palettes in `Theme.swift`).
+
 ## Blocks
 
 Blocks are read from `~/.config/promptu/blocks.json`, the same file Emacs

@@ -8,7 +8,9 @@ struct ComposerView: View {
     let close: () -> Void
     @FocusState private var keysFocused: Bool
     @FocusState private var fieldFocused: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
+    private var theme: Theme { .matching(colorScheme) }
     private var fieldShown: Bool { session.pending != nil || session.editInput != nil }
 
     var body: some View {
@@ -16,7 +18,7 @@ struct ComposerView: View {
             preview
             Divider()
             if let error = session.loadError {
-                Text(error).foregroundStyle(.red).font(.caption)
+                Text(error).foregroundStyle(theme.error).font(.caption)
             } else if session.editInput != nil {
                 editField
             } else if session.pending != nil {
@@ -29,6 +31,7 @@ struct ComposerView: View {
         }
         .padding(12)
         .frame(width: 380)
+        .background(theme.background)
         .focusable()
         .focusEffectDisabled()
         .focused($keysFocused)
@@ -53,7 +56,7 @@ struct ComposerView: View {
                     ForEach(Array(previewLines.enumerated()), id: \.offset) { idx, line in
                         Text(line)
                             .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(session.isEmpty ? .secondary : .primary)
+                            .foregroundStyle(session.isEmpty ? theme.dimmed : theme.foreground)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .id(idx)
@@ -84,8 +87,9 @@ struct ComposerView: View {
                     HStack(spacing: 6) {
                         Text(block.key)
                             .font(.system(.body, design: .monospaced).bold())
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(theme.key)
                         blockLabel(block)
+                            .foregroundStyle(theme.foreground)
                             .lineLimit(1)
                     }
                 }
@@ -99,7 +103,7 @@ struct ComposerView: View {
     /// promptu's `promptu--block-description`.
     private func blockLabel(_ block: Block) -> Text {
         guard let hints = Compose.placeholderHints(block) else { return Text(block.desc) }
-        let hintText = Text(hints).foregroundStyle(.teal)
+        let hintText = Text(hints).foregroundStyle(theme.placeholder)
         return block.desc.isEmpty ? hintText : Text(block.desc + " ") + hintText
     }
 
@@ -136,17 +140,17 @@ struct ComposerView: View {
             if session.negateNext {
                 Text("negating next")
                     .font(.caption.bold())
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(theme.placeholder)
             } else {
                 Text("- negate   ⌫ remove   ↑↓ point   ⌘E edit   ⌘Z undo   ⏎ copy")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.dimmed)
             }
             Spacer()
             Button("Quit") { NSApp.terminate(nil) }
                 .buttonStyle(.plain)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(theme.dimmed)
                 .keyboardShortcut("q", modifiers: .command)
         }
     }
