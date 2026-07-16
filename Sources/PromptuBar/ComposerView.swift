@@ -16,7 +16,6 @@ struct ComposerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             preview
-            Divider()
             if let error = session.loadError {
                 Text(error).foregroundStyle(theme.error).font(.caption)
             } else if session.editInput != nil {
@@ -26,7 +25,7 @@ struct ComposerView: View {
             } else {
                 blockGrid
             }
-            Divider()
+            Divider().overlay(theme.dimmed.opacity(0.3))
             footer
         }
         .padding(12)
@@ -56,7 +55,7 @@ struct ComposerView: View {
                     ForEach(Array(previewLines.enumerated()), id: \.offset) { idx, line in
                         Text(line)
                             .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(session.isEmpty ? theme.dimmed : theme.foreground)
+                            .foregroundStyle(previewColor(line))
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .id(idx)
@@ -72,6 +71,14 @@ struct ComposerView: View {
                 proxy.scrollTo(target, anchor: nil)
             }
         }
+        .padding(8)
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.dimmed.opacity(0.15)))
+    }
+
+    private func previewColor(_ line: String) -> Color {
+        if session.isEmpty { return theme.dimmed }
+        return line == "▮" ? theme.key : theme.foreground
     }
 
     private var blockGrid: some View {
@@ -84,10 +91,13 @@ struct ComposerView: View {
                 Button {
                     session.add(block)
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         Text(block.key)
                             .font(.system(.body, design: .monospaced).bold())
                             .foregroundStyle(theme.key)
+                            .frame(width: 22, height: 22)
+                            .background(
+                                theme.key.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
                         blockLabel(block)
                             .foregroundStyle(theme.foreground)
                             .lineLimit(1)
@@ -118,7 +128,10 @@ struct ComposerView: View {
                 set: { session.pending?.input = $0 }
             )
         )
-        .textFieldStyle(.roundedBorder)
+        .textFieldStyle(.plain)
+        .foregroundStyle(theme.foreground)
+        .padding(6)
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 6))
         .focused($fieldFocused)
         .onSubmit { session.submitPlaceholder() }
         .onExitCommand { session.cancelPending() }
@@ -132,10 +145,27 @@ struct ComposerView: View {
                 set: { session.editInput = $0 }
             )
         )
-        .textFieldStyle(.roundedBorder)
+        .textFieldStyle(.plain)
+        .foregroundStyle(theme.foreground)
+        .padding(6)
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 6))
         .focused($fieldFocused)
         .onSubmit { session.submitEdit() }
         .onExitCommand { session.cancelEdit() }
+    }
+
+    /// The key hints as one two-tone text: keys in the foreground color,
+    /// labels dimmed, so the line lays out exactly like a plain string.
+    private var keyHints: Text {
+        [("-", "negate"), ("⌫", "remove"), ("↑↓", "point"),
+         ("⌘E", "edit"), ("⌘Z", "undo"), ("⏎", "copy")]
+            .map { key, label in
+                Text(key).font(.caption.monospaced().bold())
+                    .foregroundStyle(theme.foreground.opacity(0.8))
+                    + Text(" \(label)").font(.caption).foregroundStyle(theme.dimmed)
+            }
+            .enumerated()
+            .reduce(Text("")) { $0 + ($1.offset == 0 ? $1.element : Text("  ") + $1.element) }
     }
 
     private var footer: some View {
@@ -144,10 +174,11 @@ struct ComposerView: View {
                 Text("negating next")
                     .font(.caption.bold())
                     .foregroundStyle(theme.placeholder)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(theme.placeholder.opacity(0.15), in: Capsule())
             } else {
-                Text("- negate   ⌫ remove   ↑↓ point   ⌘E edit   ⌘Z undo   ⏎ copy")
-                    .font(.caption)
-                    .foregroundStyle(theme.dimmed)
+                keyHints
             }
             Spacer()
             Button("Quit") { NSApp.terminate(nil) }
