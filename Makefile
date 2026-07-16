@@ -1,15 +1,23 @@
 APP := Promptu.app
 BIN := .build/release/PromptuBar
+ICONSET := .build/AppIcon.iconset
 
-.PHONY: app run test install clean
+.PHONY: app icon run test install clean
 
-app:
+app: icon
 	swift build -c release
 	rm -rf dist/$(APP)
-	mkdir -p dist/$(APP)/Contents/MacOS
+	mkdir -p dist/$(APP)/Contents/MacOS dist/$(APP)/Contents/Resources
 	cp Info.plist dist/$(APP)/Contents/Info.plist
 	cp $(BIN) dist/$(APP)/Contents/MacOS/PromptuBar
+	cp .build/AppIcon.icns dist/$(APP)/Contents/Resources/AppIcon.icns
 	codesign --force --sign - dist/$(APP)
+
+icon:
+	rm -rf $(ICONSET)
+	mkdir -p $(ICONSET)
+	swift scripts/make-icon.swift mascot.svg $(ICONSET)
+	iconutil -c icns $(ICONSET) -o .build/AppIcon.icns
 
 run:
 	swift run
