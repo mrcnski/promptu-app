@@ -6,6 +6,7 @@ struct Theme {
     let background: Color
     let foreground: Color
     let dimmed: Color
+    let hover: Color
     let key: Color
     let placeholder: Color
     let error: Color
@@ -15,6 +16,7 @@ struct Theme {
         background: Color(hex: 0xEFF1F5),  // base
         foreground: Color(hex: 0x4C4F69),  // text
         dimmed: Color(hex: 0x6C6F85),  // subtext0
+        hover: Color(hex: 0xCCD0DA),  // surface0
         key: Color(hex: 0x1E66F5),  // blue
         placeholder: Color(hex: 0xFE640B),  // peach
         error: Color(hex: 0xD20F39))  // red
@@ -24,6 +26,7 @@ struct Theme {
         background: Color(hex: 0x1A1A1A),  // bg
         foreground: Color(hex: 0xAAB0AB),  // fg
         dimmed: Color(hex: 0x959595),  // lighter-gray
+        hover: Color(hex: 0x2B2B2B),  // gray-bg
         key: Color(hex: 0x70A5E1),  // light-blue
         placeholder: Color(hex: 0xDB931F),  // orange
         error: Color(hex: 0xD65946))  // red

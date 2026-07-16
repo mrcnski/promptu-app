@@ -93,7 +93,7 @@ struct ComposerView: View {
                             .lineLimit(1)
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HoverButtonStyle(theme: theme))
             }
         }
     }
@@ -148,10 +148,39 @@ struct ComposerView: View {
             }
             Spacer()
             Button("Quit") { NSApp.terminate(nil) }
-                .buttonStyle(.plain)
+                .buttonStyle(HoverButtonStyle(theme: theme))
                 .font(.caption)
                 .foregroundStyle(theme.dimmed)
                 .keyboardShortcut("q", modifiers: .command)
+        }
+    }
+
+    /// Plain button that highlights under the mouse and dims while pressed.
+    private struct HoverButtonStyle: ButtonStyle {
+        let theme: Theme
+
+        func makeBody(configuration: Configuration) -> some View {
+            Highlighted(configuration: configuration, theme: theme)
+        }
+
+        // ButtonStyle itself can't hold per-button @State; this inner
+        // view carries the hover flag for each styled button.
+        private struct Highlighted: View {
+            let configuration: Configuration
+            let theme: Theme
+            @State private var hovering = false
+
+            var body: some View {
+                configuration.label
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(
+                        hovering ? theme.hover : .clear,
+                        in: RoundedRectangle(cornerRadius: 4))
+                    .contentShape(Rectangle())
+                    .opacity(configuration.isPressed ? 0.6 : 1)
+                    .onHover { hovering = $0 }
+            }
         }
     }
 
