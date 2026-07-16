@@ -32,7 +32,7 @@ final class HotKey {
             EventHotKeyID(signature: OSType(0x504D5455), id: 1),  // "PMTU"
             GetApplicationEventTarget(), 0, &hotKeyRef)
         if status != noErr {
-            NSLog("promptu-bar: hotkey registration failed (OSStatus %d)", status)
+            NSLog("promptu-app: hotkey registration failed (OSStatus %d)", status)
         }
     }
 

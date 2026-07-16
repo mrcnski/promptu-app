@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "promptu-bar",
+    name: "promptu-app",
     platforms: [.macOS(.v14)],
     targets: [
         .target(name: "PromptuCore"),

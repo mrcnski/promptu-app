@@ -5,7 +5,7 @@ import Testing
 
 private func tempDir() throws -> URL {
     let dir = FileManager.default.temporaryDirectory
-        .appendingPathComponent("promptu-bar-tests-\(UUID().uuidString)")
+        .appendingPathComponent("promptu-app-tests-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     return dir
 }

@@ -1,4 +1,4 @@
-# promptu-bar
+# promptu-app
 
 A macOS menubar companion to [promptu](https://github.com/mrcnski/promptu):
 compose LLM prompts from building blocks, from any app, no Emacs required.

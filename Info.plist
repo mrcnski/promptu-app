@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PromptuBar</string>
 	<key>CFBundleIdentifier</key>
-	<string>ski.mrcn.promptu-bar</string>
+	<string>ski.mrcn.promptu-app</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
