@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="mascot.svg" alt="promptu mascot — a friendly popover panel holding up the next prompt block" width="180"/>
+  <img src="mascot.svg" alt="promptu mascot — a friendly creature built from stacked prompt blocks, giving a thumbs-up" width="180"/>
 
 # promptu-app
 
