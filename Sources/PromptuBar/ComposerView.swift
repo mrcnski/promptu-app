@@ -154,38 +154,43 @@ struct ComposerView: View {
         .onExitCommand { session.cancelEdit() }
     }
 
-    /// The key hints as one two-tone text: keys in the foreground color,
-    /// labels dimmed, so the line lays out exactly like a plain string.
-    private var keyHints: Text {
-        [("-", "negate"), ("⌫", "remove"), ("↑↓", "point"),
-         ("⌘E", "edit"), ("⌘Z", "undo"), ("⏎", "copy")]
-            .map { key, label in
-                Text(key).font(.caption.monospaced().bold())
-                    .foregroundStyle(theme.foreground.opacity(0.8))
-                    + Text(" \(label)").font(.caption).foregroundStyle(theme.dimmed)
-            }
-            .enumerated()
-            .reduce(Text("")) { $0 + ($1.offset == 0 ? $1.element : Text("  ") + $1.element) }
+    /// One "key action" hint, two-tone: the key bright, the label dimmed.
+    private func hint(_ key: String, _ label: String) -> some View {
+        HStack(spacing: 3) {
+            Text(key).font(.caption.monospaced().bold())
+                .foregroundStyle(theme.foreground.opacity(0.8))
+            Text(label).font(.caption).foregroundStyle(theme.dimmed)
+        }
     }
 
     private var footer: some View {
-        HStack(spacing: 8) {
+        VStack(spacing: 8) {
             if session.negateNext {
-                Text("negating next")
-                    .font(.caption.bold())
-                    .foregroundStyle(theme.placeholder)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(theme.placeholder.opacity(0.15), in: Capsule())
+                HStack {
+                    Text("negating next")
+                        .font(.caption.bold())
+                        .foregroundStyle(theme.placeholder)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(theme.placeholder.opacity(0.15), in: Capsule())
+                    Spacer()
+                }
             } else {
-                keyHints
+                HStack {
+                    hint("-", "negate"); Spacer()
+                    hint("⌫", "remove"); Spacer()
+                    hint("↑↓", "point"); Spacer()
+                    hint("⌘E", "edit"); Spacer()
+                    hint("⌘Z", "undo"); Spacer()
+                    hint("⏎", "copy")
+                }
             }
-            Spacer()
-            Button("Quit") { NSApp.terminate(nil) }
-                .buttonStyle(HoverButtonStyle(theme: theme))
-                .font(.caption)
-                .foregroundStyle(theme.dimmed)
-                .keyboardShortcut("q", modifiers: .command)
+            HStack {
+                Spacer()
+                Button { NSApp.terminate(nil) } label: { hint("⌘Q", "quit") }
+                    .buttonStyle(HoverButtonStyle(theme: theme))
+                    .keyboardShortcut("q", modifiers: .command)
+            }
         }
     }
 
