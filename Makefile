@@ -5,6 +5,8 @@ VERSION := $(shell /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString
 
 .PHONY: app icon run test install zip clean
 
+# Host-arch only: a universal (--arch arm64 --arch x86_64) build needs
+# full Xcode, not just the Command Line Tools.
 app: icon
 	swift build -c release
 	rm -rf dist/$(APP)

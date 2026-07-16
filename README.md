@@ -103,6 +103,9 @@ add Promptu.
 - Custom separator / negation prefix (fixed at `"\n- "` / `"don't "`)
 - Homebrew cask, once there are releases to point at (`brew install --cask`
   from a personal tap; brew can also skip the quarantine flag)
+- Universal (Intel + Apple Silicon) release binaries — needs full Xcode
+  for `swift build --arch arm64 --arch x86_64`; releases are currently
+  Apple Silicon only
 
 ## See also
 
