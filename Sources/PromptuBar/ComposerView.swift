@@ -9,8 +9,9 @@ struct ComposerView: View {
     @FocusState private var keysFocused: Bool
     @FocusState private var fieldFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(ThemeChoice.defaultsKey) private var themeChoice = ThemeChoice.system
 
-    private var theme: Theme { .matching(colorScheme) }
+    private var theme: Theme { themeChoice.theme(for: colorScheme) }
     private var fieldShown: Bool {
         session.pending != nil || session.editInput != nil || session.draft != nil
     }
@@ -235,6 +236,7 @@ struct ComposerView: View {
                 }
             }
             HStack {
+                themeSelector
                 Spacer()
                 Button { session.toggleEditor() } label: {
                     hint("⌘B", session.editorShown ? "compose" : "block editor")
@@ -243,6 +245,21 @@ struct ComposerView: View {
                 Button { NSApp.terminate(nil) } label: { hint("⌘Q", "quit") }
                     .buttonStyle(HoverButtonStyle(theme: theme))
                     .keyboardShortcut("q", modifiers: .command)
+            }
+        }
+    }
+
+    /// The theme row: follow the system appearance, or pin one theme.
+    private var themeSelector: some View {
+        HStack(spacing: 2) {
+            Text("theme").font(.caption).foregroundStyle(theme.dimmed)
+            ForEach(ThemeChoice.allCases, id: \.self) { choice in
+                Button { themeChoice = choice } label: {
+                    Text(choice.rawValue)
+                        .font(choice == themeChoice ? .caption.bold() : .caption)
+                        .foregroundStyle(choice == themeChoice ? theme.key : theme.dimmed)
+                }
+                .buttonStyle(HoverButtonStyle(theme: theme, horizontalPadding: 3))
             }
         }
     }

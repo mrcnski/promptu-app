@@ -19,7 +19,8 @@ focused, so pick one nothing else needs.
 The panel follows the system appearance: [Catppuccin
 Latte](https://catppuccin.com) in light mode,
 [Nimbus](https://github.com/mrcnski/nimbus-theme) in dark mode
-(palettes in `Theme.swift`).
+(palettes in `Theme.swift`). The footer's theme row can pin either
+theme instead of following the system; the choice is remembered.
 
 ## Blocks
 

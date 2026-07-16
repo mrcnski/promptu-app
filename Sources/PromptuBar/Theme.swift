@@ -39,6 +39,22 @@ struct Theme {
     }
 }
 
+/// The user's theme setting: follow the system appearance, or pin one
+/// theme. Stored in UserDefaults by its raw value.
+enum ThemeChoice: String, CaseIterable {
+    case system, latte, nimbus
+
+    static let defaultsKey = "theme"
+
+    func theme(for scheme: ColorScheme) -> Theme {
+        switch self {
+        case .system: .matching(scheme)
+        case .latte: .latte
+        case .nimbus: .nimbus
+        }
+    }
+}
+
 extension Color {
     /// From 0xRRGGBB.
     init(hex: UInt32) {
