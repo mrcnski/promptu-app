@@ -49,6 +49,21 @@ import Testing
     #expect(Compose.activePlaceholders(block, negated: true) == [])
 }
 
+// MARK: - placeholderHints
+
+@Test func placeholderHintsNilWithoutPlaceholders() {
+    #expect(Compose.placeholderHints(Block(key: "c", desc: "commit", text: "commit")) == nil)
+    #expect(
+        Compose.placeholderHints(
+            Block(key: "c", desc: "commit", text: "commit", placeholders: [])) == nil)
+}
+
+@Test func placeholderHintsBracketEveryName() {
+    let block = Block(
+        key: "i", desc: "investigate", text: "investigate {a} {b}", placeholders: ["a", "b"])
+    #expect(Compose.placeholderHints(block) == "<a> <b>")
+}
+
 // MARK: - compose
 
 @Test func composeEmptyIsEmpty() {

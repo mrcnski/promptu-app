@@ -85,13 +85,22 @@ struct ComposerView: View {
                         Text(block.key)
                             .font(.system(.body, design: .monospaced).bold())
                             .foregroundStyle(.orange)
-                        Text(block.desc.isEmpty ? block.text : block.desc)
+                        blockLabel(block)
                             .lineLimit(1)
                     }
                 }
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    /// The block's menu label: its desc plus colored <placeholder> hints,
+    /// standing alone when the desc is empty — the same rules as Emacs
+    /// promptu's `promptu--block-description`.
+    private func blockLabel(_ block: Block) -> Text {
+        guard let hints = Compose.placeholderHints(block) else { return Text(block.desc) }
+        let hintText = Text(hints).foregroundStyle(.teal)
+        return block.desc.isEmpty ? hintText : Text(block.desc + " ") + hintText
     }
 
     private var placeholderField: some View {

@@ -23,6 +23,14 @@ public enum Compose {
         return (block.placeholders ?? []).filter { template.contains("{\($0)}") }
     }
 
+    /// The block's placeholders as menu hints, "<name> <name>", or nil
+    /// when it has none.  The menu shows them after the desc, matching
+    /// Emacs promptu's block descriptions.
+    public static func placeholderHints(_ block: Block) -> String? {
+        guard let names = block.placeholders, !names.isEmpty else { return nil }
+        return names.map { "<\($0)>" }.joined(separator: " ")
+    }
+
     /// The separator's trailing line prefix: the text after its last
     /// newline, or "" for a separator without one.
     public static func linePrefix(_ separator: String = separator) -> String {
