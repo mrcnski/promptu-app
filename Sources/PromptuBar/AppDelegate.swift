@@ -29,10 +29,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.target = self
 
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(
+        let hosting = NSHostingController(
             rootView: ComposerView(session: session) { [weak self] in
                 self?.close()
             })
+        // Track the SwiftUI ideal size, so the popover grows and shrinks
+        // with the preview instead of staying at its first-shown size.
+        hosting.sizingOptions = .preferredContentSize
+        popover.contentViewController = hosting
 
         hotKey = HotKey(keyCode: Self.hotKeyCode, modifiers: Self.hotKeyModifiers) {
             [weak self] in self?.toggle()

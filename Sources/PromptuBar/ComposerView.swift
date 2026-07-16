@@ -40,14 +40,25 @@ struct ComposerView: View {
     }
 
     private var preview: some View {
-        ScrollView {
-            Text(session.isEmpty ? "empty prompt" : session.preview)
-                .font(.system(.body, design: .monospaced))
-                .foregroundStyle(session.isEmpty ? .secondary : .primary)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        ScrollViewReader { proxy in
+            ScrollView {
+                Text(session.isEmpty ? "empty prompt" : session.preview)
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(session.isEmpty ? .secondary : .primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .id("preview")
+            }
+            .frame(minHeight: 40, maxHeight: 300)
+            .onChange(of: session.preview) {
+                // Keep the tail visible while appending; a moved point
+                // means the user is working higher up, so leave the
+                // scroll position alone.
+                if session.composition.point == nil {
+                    proxy.scrollTo("preview", anchor: .bottom)
+                }
+            }
         }
-        .frame(minHeight: 40, maxHeight: 160)
     }
 
     private var blockGrid: some View {
