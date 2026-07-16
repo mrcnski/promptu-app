@@ -11,18 +11,25 @@ struct ComposerView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var theme: Theme { .matching(colorScheme) }
-    private var fieldShown: Bool { session.pending != nil || session.editInput != nil }
+    private var fieldShown: Bool {
+        session.pending != nil || session.editInput != nil || session.draft != nil
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            preview
-            if let error = session.loadError {
+            if session.editorShown {
+                BlockEditorView(session: session, theme: theme, fieldFocused: $fieldFocused)
+            } else if let error = session.loadError {
+                preview
                 Text(error).foregroundStyle(theme.error).font(.caption)
             } else if session.editInput != nil {
+                preview
                 editField
             } else if session.pending != nil {
+                preview
                 placeholderField
             } else {
+                preview
                 blockGrid
             }
             Divider().overlay(theme.dimmed.opacity(0.3))
@@ -165,7 +172,20 @@ struct ComposerView: View {
 
     private var footer: some View {
         VStack(spacing: 8) {
-            if session.negateNext {
+            if session.editorShown {
+                HStack {
+                    if session.draft == nil {
+                        hint("esc", "back")
+                        Spacer()
+                        Text("click a block to edit it")
+                            .font(.caption).foregroundStyle(theme.dimmed)
+                    } else {
+                        hint("⏎", "save")
+                        Spacer()
+                        hint("esc", "cancel")
+                    }
+                }
+            } else if session.negateNext {
                 HStack {
                     Text("negating next")
                         .font(.caption.bold())
@@ -187,6 +207,10 @@ struct ComposerView: View {
             }
             HStack {
                 Spacer()
+                Button { session.toggleEditor() } label: {
+                    hint("⌘B", session.editorShown ? "compose" : "blocks")
+                }
+                .buttonStyle(HoverButtonStyle(theme: theme))
                 Button { NSApp.terminate(nil) } label: { hint("⌘Q", "quit") }
                     .buttonStyle(HoverButtonStyle(theme: theme))
                     .keyboardShortcut("q", modifiers: .command)
@@ -194,40 +218,25 @@ struct ComposerView: View {
         }
     }
 
-    /// Plain button that highlights under the mouse and dims while pressed.
-    private struct HoverButtonStyle: ButtonStyle {
-        let theme: Theme
-
-        func makeBody(configuration: Configuration) -> some View {
-            Highlighted(configuration: configuration, theme: theme)
-        }
-
-        // ButtonStyle itself can't hold per-button @State; this inner
-        // view carries the hover flag for each styled button.
-        private struct Highlighted: View {
-            let configuration: Configuration
-            let theme: Theme
-            @State private var hovering = false
-
-            var body: some View {
-                configuration.label
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(
-                        hovering ? theme.hover : .clear,
-                        in: RoundedRectangle(cornerRadius: 4))
-                    .contentShape(Rectangle())
-                    .opacity(configuration.isPressed ? 0.6 : 1)
-                    .onHover { hovering = $0 }
-            }
-        }
-    }
-
     private func handleKey(_ press: KeyPress) -> KeyPress.Result {
         guard !fieldShown else { return .ignored }
 
+        // In the Block Editor's list, only "back" keys act; block keys
+        // must not add entries behind the editor.
+        if session.editorShown {
+            let commandB = press.modifiers.contains(.command) && press.key.character == "b"
+            if commandB || press.key == .escape {
+                session.toggleEditor()
+                return .handled
+            }
+            return .ignored
+        }
+
         if press.modifiers.contains(.command) {
             switch press.key.character {
+            case "b":
+                session.toggleEditor()
+                return .handled
             case "e":
                 session.beginEdit()
                 return .handled
@@ -282,5 +291,34 @@ struct ComposerView: View {
             return .handled
         }
         return .ignored
+    }
+}
+
+/// Plain button that highlights under the mouse and dims while pressed.
+struct HoverButtonStyle: ButtonStyle {
+    let theme: Theme
+
+    func makeBody(configuration: Configuration) -> some View {
+        Highlighted(configuration: configuration, theme: theme)
+    }
+
+    // ButtonStyle itself can't hold per-button @State; this inner
+    // view carries the hover flag for each styled button.
+    private struct Highlighted: View {
+        let configuration: Configuration
+        let theme: Theme
+        @State private var hovering = false
+
+        var body: some View {
+            configuration.label
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(
+                    hovering ? theme.hover : .clear,
+                    in: RoundedRectangle(cornerRadius: 4))
+                .contentShape(Rectangle())
+                .opacity(configuration.isPressed ? 0.6 : 1)
+                .onHover { hovering = $0 }
+        }
     }
 }

@@ -15,14 +15,28 @@ final class Session: ObservableObject {
         var currentName: String { names[values.count] }
     }
 
-    let blocks: [Block]
+    /// A block being created or edited in the Block Editor.
+    /// originalKey identifies the block being replaced, nil when adding.
+    struct Draft {
+        var originalKey: String?
+        var key = ""
+        var desc = ""
+        var text = ""
+        var negative = ""
+        var error: String?
+    }
+
     let loadError: String?
 
+    @Published private(set) var blocks: [Block]
     @Published private var composition = Composition()
     @Published var negateNext = false
     @Published var pending: Pending?
     /// Text being edited for the entry above the point, nil when not editing.
     @Published var editInput: String?
+    /// Whether the popover shows the Block Editor instead of the composer.
+    @Published var editorShown = false
+    @Published var draft: Draft?
 
     init() {
         do {
@@ -87,6 +101,83 @@ final class Session: ObservableObject {
 
     func cancelEdit() {
         editInput = nil
+    }
+
+    // MARK: - Block Editor
+
+    /// Entering or leaving the editor also drops any half-typed
+    /// placeholder or entry edit, so no hidden field keeps the focus.
+    func toggleEditor() {
+        editorShown.toggle()
+        draft = nil
+        pending = nil
+        editInput = nil
+    }
+
+    func beginDraft(_ block: Block? = nil) {
+        draft = block.map {
+            Draft(
+                originalKey: $0.key, key: $0.key, desc: $0.desc,
+                text: $0.text, negative: $0.negative ?? "")
+        } ?? Draft()
+    }
+
+    func cancelDraft() {
+        draft = nil
+    }
+
+    /// Validate the draft, then write the whole block list back to
+    /// blocks.json; placeholders are derived from {name}s in the texts.
+    func submitDraft() {
+        guard var d = draft else { return }
+        let key = d.key.trimmingCharacters(in: .whitespaces)
+        let text = d.text.trimmingCharacters(in: .whitespaces)
+        let negative = d.negative.trimmingCharacters(in: .whitespaces)
+        if key.count != 1 {
+            d.error = "key must be a single character"
+        } else if blocks.contains(where: { $0.key == key && $0.key != d.originalKey }) {
+            d.error = "key \"\(key)\" is already used"
+        } else if text.isEmpty {
+            d.error = "text must not be empty"
+        } else {
+            let block = Block(
+                key: key, desc: d.desc.trimmingCharacters(in: .whitespaces), text: text,
+                negative: negative.isEmpty ? nil : negative,
+                placeholders: Compose.derivePlaceholders(
+                    text: text, negative: negative.isEmpty ? nil : negative))
+            var updated = blocks
+            if let index = updated.firstIndex(where: { $0.key == d.originalKey }) {
+                updated[index] = block
+            } else {
+                updated.append(block)
+            }
+            guard let error = persist(updated) else { return }
+            d.error = error
+        }
+        draft = d
+    }
+
+    func deleteDraftBlock() {
+        guard let originalKey = draft?.originalKey else {
+            draft = nil
+            return
+        }
+        var updated = blocks
+        updated.removeAll { $0.key == originalKey }
+        if let error = persist(updated) { draft?.error = error }
+    }
+
+    /// Save the list to blocks.json; on success adopt it, close the
+    /// draft form, and return nil. On failure return the error text.
+    private func persist(_ updated: [Block]) -> String? {
+        do {
+            try BlocksConfig.save(updated)
+            blocks = updated
+            draft = nil
+            return nil
+        } catch {
+            return "can't save: \(error.localizedDescription)"
+        }
     }
 
     /// Copy the composed prompt to the clipboard and start over.

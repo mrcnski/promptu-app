@@ -40,6 +40,11 @@ touched. The file is an array of objects mirroring promptu's block plists:
 `{name}` placeholders are prompted for when the block is added. Blocks are
 re-read on app restart.
 
+Blocks can also be edited in-app: `⌘B` opens the Block Editor — click a
+block to change or delete it, or add a new one. Saving rewrites
+blocks.json (the `placeholders` field is derived from `{name}`s in the
+texts), so Emacs promptu picks the changes up too.
+
 ## Keys
 
 | Key            | Action                                             |
@@ -51,6 +56,7 @@ re-read on app restart.
 | `⌘E`           | Edit the entry above the point (or the last one)   |
 | `⌘Z` / `⇧⌘Z`   | Undo / redo                                        |
 | `RET`          | Copy the composed prompt, close the panel          |
+| `⌘B`           | Toggle the Block Editor                            |
 | `ESC`          | Close the panel (prompt is kept)                   |
 | `⌥⌘P`          | Summon the panel from anywhere (global)            |
 | `⌘Q`           | Quit                                               |
