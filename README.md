@@ -3,8 +3,11 @@
 
 # promptu-app
 
-*A macOS menubar companion to [promptu](https://github.com/mrcnski/promptu):
-compose LLM prompts from building blocks, from any app, no Emacs required.*
+Compose LLM prompts from building blocks, right from the menubar!
+
+*The opposite of 'impromptu': composed, not off-the-cuff.*
+
+<img src="screenshot.png" alt="promptu menu showing blocks, controls, and a live preview" width="365">
 </div>
 
 Press `⌥⌘P` from any app (or click the menubar icon), press block keys to
@@ -91,11 +94,16 @@ once `make install` has run — launch "Promptu" from Spotlight or
 /Applications. To start at login: System Settings → General → Login Items,
 add Promptu.
 
-## Not (yet) ported from Emacs promptu
+## Todo
 
-- History (`M-p` / `M-n` / `M-r`)
-- Whole-prompt free-text editing (`M-E`)
-- Custom `promptu-separator` / negation prefix (fixed at `"\n- "` / `"don't "`)
+- History
+- Whole-prompt free-text editing
+- Custom separator / negation prefix (fixed at `"\n- "` / `"don't "`)
+
+## See also
+
+- The original [Emacs package](https://github.com/mrcnski/promptu) that started
+  it all!
 
 ## License
 
