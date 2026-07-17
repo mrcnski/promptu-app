@@ -23,17 +23,3 @@ public struct Block: Codable, Hashable, Identifiable, Sendable {
         self.placeholders = placeholders
     }
 }
-
-extension [Block] {
-    /// The list with the block for `key` moved to `gap` (indices as
-    /// they are before the move) — where a drag's insertion bar shows.
-    /// Unchanged when the key is missing or the move changes nothing.
-    public func moving(_ key: String, toGap gap: Int) -> [Block] {
-        guard let from = firstIndex(where: { $0.key == key }) else { return self }
-        let dest = gap > from ? gap - 1 : gap
-        guard dest != from else { return self }
-        var moved = self
-        moved.insert(moved.remove(at: from), at: dest)
-        return moved
-    }
-}

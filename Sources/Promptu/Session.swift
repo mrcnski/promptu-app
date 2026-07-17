@@ -178,13 +178,14 @@ final class Session: ObservableObject {
         draft = d
     }
 
-    /// Move the dragged block to the dropped gap and save the new
+    /// Reorder the block list from a List's `.onMove` and save the new
     /// order. A failed save only logs — the order still holds in
     /// memory, and the next successful save writes it out.
-    func moveBlock(_ key: String, toGap gap: Int) {
-        let moved = blocks.moving(key, toGap: gap)
-        guard moved != blocks else { return }
-        blocks = moved
+    func moveBlocks(from source: IndexSet, to destination: Int) {
+        var updated = blocks
+        updated.move(fromOffsets: source, toOffset: destination)
+        guard updated != blocks else { return }
+        blocks = updated
         do {
             try BlocksConfig.save(blocks)
         } catch {

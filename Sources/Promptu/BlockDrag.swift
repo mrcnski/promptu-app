@@ -49,40 +49,6 @@ struct DragHandle: View {
     }
 }
 
-/// Drop delegate for reordering the editor's block list: the dragged
-/// block moves to `gap`, marked by an insertion bar while hovering. A
-/// row's gap inserts above that row; the container's gap appends.
-struct BlockListDropDelegate: DropDelegate {
-    let gap: Int
-    @Binding var draggingKey: String?
-    @Binding var dropGap: Int?
-    let session: Session
-
-    func validateDrop(info: DropInfo) -> Bool {
-        draggingKey != nil
-    }
-
-    func dropEntered(info: DropInfo) {
-        dropGap = gap
-    }
-
-    func dropExited(info: DropInfo) {
-        if dropGap == gap { dropGap = nil }
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        dropGap = nil
-        defer { draggingKey = nil }
-        guard let key = draggingKey else { return false }
-        session.moveBlock(key, toGap: gap)
-        return true
-    }
-}
-
 /// Drop delegate for the preview: a block dragged from the grid is
 /// inserted at the hovered line's gap, an entry dragged from another
 /// preview line is moved there. A nil line is the preview container

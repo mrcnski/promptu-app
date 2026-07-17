@@ -7,8 +7,6 @@ struct BlockEditorView: View {
     @ObservedObject var session: Session
     let theme: Theme
     @FocusState.Binding var fieldFocused: Bool
-    @State private var draggingKey: String?
-    @State private var dropGap: Int?
 
     var body: some View {
         if session.draft != nil {
@@ -18,55 +16,33 @@ struct BlockEditorView: View {
         }
     }
 
+    /// A SwiftUI List so reordering rides Apple's native drag-to-move,
+    /// which animates smoothly and has none of the snap-back that the
+    /// onDrag/onDrop drag-and-drop leaves behind. The default List
+    /// chrome (grouped insets, separators, backgrounds) is stripped so
+    /// it matches the themed popover.
     private var list: some View {
         VStack(alignment: .leading, spacing: 3) {
-            ScrollView {
-                // No spacing between the rows' drop zones: a gap would
-                // fall through to the container target below and
-                // flicker its append bar while the drag crosses it.
-                VStack(spacing: 0) {
-                    ForEach(Array(session.blocks.enumerated()), id: \.element.id) {
-                        idx, block in
-                        DraggableButton(theme: theme) {
-                            session.beginDraft(block)
-                        } drag: {
-                            draggingKey = block.key
-                            return NSItemProvider(object: block.key as NSString)
-                        } label: {
-                            HStack(spacing: 0) {
-                                row(block).frame(maxWidth: .infinity, alignment: .leading)
-                                Grip(theme: theme)
-                            }
+            List {
+                ForEach(session.blocks) { block in
+                    Button {
+                        session.beginDraft(block)
+                    } label: {
+                        HStack(spacing: 0) {
+                            row(block).frame(maxWidth: .infinity, alignment: .leading)
+                            Grip(theme: theme)
                         }
-                        // The insertion bar: a drop here lands above
-                        // this row.
-                        .overlay(alignment: .top) {
-                            if dropGap == idx {
-                                Rectangle().fill(theme.key).frame(height: 2)
-                            }
-                        }
-                        .padding(.bottom, 3)
-                        .onDrop(
-                            of: [.text],
-                            delegate: BlockListDropDelegate(
-                                gap: idx, draggingKey: $draggingKey, dropGap: $dropGap,
-                                session: session))
                     }
+                    .buttonStyle(HoverButtonStyle(theme: theme))
+                    .listRowInsets(EdgeInsets(top: 1.5, leading: 0, bottom: 1.5, trailing: 0))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
                 }
-                .animation(.default, value: session.blocks)
+                .onMove { session.moveBlocks(from: $0, to: $1) }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .frame(maxHeight: 300)
-            // A drop below the rows appends.
-            .overlay(alignment: .bottom) {
-                if dropGap == session.blocks.count {
-                    Rectangle().fill(theme.key).frame(height: 2)
-                }
-            }
-            .onDrop(
-                of: [.text],
-                delegate: BlockListDropDelegate(
-                    gap: session.blocks.count, draggingKey: $draggingKey, dropGap: $dropGap,
-                    session: session))
             Button {
                 session.beginDraft()
             } label: {
