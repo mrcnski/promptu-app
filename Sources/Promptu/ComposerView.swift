@@ -270,15 +270,22 @@ struct ComposerView: View {
         EditField(session: session, theme: theme, fieldFocused: $fieldFocused)
     }
 
-    /// Emacs word motion in a focused text field: ⌥B/⌥F/⌥D — or the
-    /// ESC-prefixed pairs ESC b/f/d, ESC being Emacs' meta prefix —
-    /// forwarded to the field editor. The ESC prefix matters beyond
-    /// habit: terminal-style remap tools deliver exactly that pair
-    /// (Keyboard Maestro's terminal group types "Esc, b"), and such
-    /// app-scoped tools cannot see an LSUIElement app as frontmost to
-    /// stand down. A lone ESC still cancels the field once the grace
-    /// window passes; ESC ESC cancels immediately.
-    private func fieldMotion(_ press: KeyPress) -> KeyPress.Result {
+    /// Keys while a text field is focused. Emacs word motion —
+    /// ⌥B/⌥F/⌥D, or the ESC-prefixed pairs ESC b/f/d, ESC being Emacs'
+    /// meta prefix — is forwarded to the field editor. The ESC prefix
+    /// matters beyond habit: terminal-scoped remap tools deliver
+    /// exactly that pair for a physical ⌥B (Keyboard Maestro types
+    /// "Esc, b"), and they cannot see an LSUIElement app as frontmost
+    /// to stand down. A lone ESC still cancels the field once the
+    /// grace window passes; ESC ESC cancels immediately.
+    /// The word-motion selectors behind M-b/M-f/M-d.
+    private nonisolated static let wordMotions: [Character: Selector] = [
+        "b": #selector(NSStandardKeyBindingResponding.moveWordBackward(_:)),
+        "f": #selector(NSStandardKeyBindingResponding.moveWordForward(_:)),
+        "d": #selector(NSStandardKeyBindingResponding.deleteWordForward(_:)),
+    ]
+
+    private func handleFieldKey(_ press: KeyPress) -> KeyPress.Result {
         if press.key == .escape && press.modifiers.isEmpty {
             if pendingEscape != nil {
                 clearPendingEscape()
@@ -288,15 +295,10 @@ struct ComposerView: View {
             }
             return .handled
         }
-        let commands: [Character: Selector] = [
-            "b": #selector(NSStandardKeyBindingResponding.moveWordBackward(_:)),
-            "f": #selector(NSStandardKeyBindingResponding.moveWordForward(_:)),
-            "d": #selector(NSStandardKeyBindingResponding.deleteWordForward(_:)),
-        ]
         let meta =
             press.modifiers == [.option]
             || (pendingEscape != nil && press.modifiers.isEmpty)
-        guard meta, let selector = commands[press.key.character],
+        guard meta, let selector = Self.wordMotions[press.key.character],
             let responder = NSApp.keyWindow?.firstResponder
         else { return .ignored }
         clearPendingEscape()
@@ -312,7 +314,7 @@ struct ComposerView: View {
             action()
         }
         pendingEscape = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06, execute: work)
     }
 
     private func clearPendingEscape() {
@@ -437,7 +439,7 @@ struct ComposerView: View {
     }
 
     private func handleKey(_ press: KeyPress) -> KeyPress.Result {
-        guard !fieldShown else { return fieldMotion(press) }
+        guard !fieldShown else { return handleFieldKey(press) }
         let command = press.modifiers.contains(.command)
 
         // On the editor and settings screens only "back" keys act; block
