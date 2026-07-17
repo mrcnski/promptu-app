@@ -137,6 +137,10 @@ struct ComposerView: View {
         .padding(8)
         .background(theme.surface, in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.dimmed.opacity(0.15)))
+        // A screen switch mid-drag (⌘B under a held mouse) cancels the
+        // gesture without its onEnded; don't keep a stuck drag around —
+        // the marker would stay hidden and the frames frozen.
+        .onDisappear { drag = ReorderDrag() }
     }
 
     /// A short gradient into the surface color at a clipped edge — the
