@@ -82,6 +82,58 @@ import Testing
     #expect(c.entries == ["a"])
 }
 
+// MARK: - move
+
+@Test func moveEntryForwardPutsPointPastIt() {
+    var c = Composition()
+    c.add("a")
+    c.add("b")
+    c.add("c")
+    c.moveEntry(from: 0, to: 1)
+    #expect(c.entries == ["b", "a", "c"])
+    #expect(c.point == 2)
+}
+
+@Test func moveEntryBackwardPutsPointPastIt() {
+    var c = Composition()
+    c.add("a")
+    c.add("b")
+    c.add("c")
+    c.moveEntry(from: 2, to: 0)
+    #expect(c.entries == ["c", "a", "b"])
+    #expect(c.point == 1)
+}
+
+@Test func moveEntryToItsOwnIndexIsNoop() {
+    var c = Composition()
+    c.add("a")
+    c.add("b")
+    c.moveEntry(from: 1, to: 1)
+    #expect(c.entries == ["a", "b"])
+    #expect(c.point == nil)
+    c.undo()  // no-ops must not have checkpointed
+    #expect(c.entries == ["a"])
+}
+
+@Test func moveEntryToTheEndLeavesPointAtEnd() {
+    var c = Composition()
+    c.add("a")
+    c.add("b")
+    c.moveEntry(from: 0, to: 1)
+    #expect(c.entries == ["b", "a"])
+    #expect(c.point == nil)
+    c.undo()
+    #expect(c.entries == ["a", "b"])
+}
+
+@Test func moveEntryOutOfRangeIsNoop() {
+    var c = Composition()
+    c.add("a")
+    c.moveEntry(from: 0, to: 1)
+    c.moveEntry(from: 1, to: 0)
+    #expect(c.entries == ["a"])
+}
+
 // MARK: - undo/redo
 
 @Test func undoRevertsLastChangeIncludingPoint() {

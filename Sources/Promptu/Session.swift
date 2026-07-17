@@ -52,6 +52,11 @@ final class Session: ObservableObject {
 
     var isEmpty: Bool { composition.entries.isEmpty }
     var preview: String { composition.preview }
+    var entries: [String] { composition.entries }
+    /// The gap the point sits at, nil at the end (no marker shown).
+    var pointGap: Int? { composition.point }
+
+    func moveEntry(from: Int, to: Int) { composition.moveEntry(from: from, to: to) }
 
     func add(_ block: Block) {
         let negated = negateNext

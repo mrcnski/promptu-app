@@ -11,6 +11,15 @@ struct ComposerView: View {
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage(ThemeChoice.defaultsKey) private var themeChoice = ThemeChoice.system
 
+    /// Entry-reorder drag state, the same trio as the block editor's:
+    /// the dragged entry's index, its gesture translation, and the
+    /// rows' resting frames, frozen while a drag is in flight.
+    @State private var draggingEntry: Int?
+    @State private var entryDragOffset: CGFloat = 0
+    @State private var entryFrames: [AnyHashable: CGRect] = [:]
+
+    private static let previewSpace = "preview"
+
     private var theme: Theme { themeChoice.theme(for: colorScheme) }
     private var fieldShown: Bool {
         session.pending != nil || session.editInput != nil || session.draft != nil
@@ -51,34 +60,70 @@ struct ComposerView: View {
         }
     }
 
-    /// The preview split into lines, so the scroll view can target the
-    /// point marker's line.
-    private var previewLines: [String] {
-        (session.isEmpty ? "empty prompt" : session.preview)
-            .components(separatedBy: "\n")
+    /// One preview row per entry, with an identity that stays with the
+    /// entry across reorders so a drop settles under one animation.
+    /// Duplicate entries are told apart by their occurrence number.
+    private struct PreviewRow: Identifiable {
+        let id: AnyHashable
+        let index: Int
+        let text: String
     }
 
+    private var entryRows: [PreviewRow] {
+        var seen: [String: Int] = [:]
+        return session.entries.enumerated().map { index, text in
+            let n = seen[text, default: 0]
+            seen[text] = n + 1
+            return PreviewRow(id: AnyHashable("\(n)|\(text)"), index: index, text: text)
+        }
+    }
+
+    private var entryIDs: [AnyHashable] { entryRows.map(\.id) }
+
+    /// See BlockEditorView.dragTarget — the same drag geometry, over
+    /// the preview's entry rows.
+    private var entryDragTarget: Int? {
+        Reorder.target(
+            order: entryIDs, frames: entryFrames,
+            dragging: draggingEntry.map { entryIDs[$0] }, offset: entryDragOffset)
+    }
+
+    /// The preview as one row per entry (plus the point marker's row),
+    /// reorderable by the same hand-rolled DragGesture as the block
+    /// editor: grab a row's grip and the others slide to open a gap.
     private var preview: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(previewLines.enumerated()), id: \.offset) { idx, line in
-                        Text(line)
+                    if session.isEmpty {
+                        Text("empty prompt")
                             .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(previewColor(line))
-                            .textSelection(.enabled)
+                            .foregroundStyle(theme.dimmed)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .id(idx)
+                    } else {
+                        if session.pointGap == 0 { marker }
+                        ForEach(entryRows) { row in
+                            entryRow(row)
+                            if session.pointGap == row.index + 1 { marker }
+                        }
                     }
+                }
+                .coordinateSpace(name: Self.previewSpace)
+                .animation(.snappy(duration: 0.22), value: entryDragTarget)
+                .onPreferenceChange(ReorderFrameKey.self) { next in
+                    // Freeze the map during a drag; see BlockEditorView.
+                    if draggingEntry == nil { entryFrames = next }
                 }
             }
             .frame(minHeight: 40, maxHeight: 300)
             .onChange(of: session.preview) {
-                // Follow the point: its marker's line when moved, the tail
+                // Follow the point: its marker when moved, the tail
                 // otherwise. The nil anchor scrolls the minimum needed.
-                let lines = previewLines
-                let target = lines.firstIndex { $0.contains("▮") } ?? lines.count - 1
-                proxy.scrollTo(target, anchor: nil)
+                if session.pointGap != nil {
+                    proxy.scrollTo(Self.markerID, anchor: nil)
+                } else if let last = entryRows.last {
+                    proxy.scrollTo(last.id, anchor: nil)
+                }
             }
         }
         .padding(8)
@@ -86,9 +131,71 @@ struct ComposerView: View {
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.dimmed.opacity(0.15)))
     }
 
-    private func previewColor(_ line: String) -> Color {
-        if session.isEmpty { return theme.dimmed }
-        return line == "▮" ? theme.key : theme.foreground
+    private static let markerID: AnyHashable = "marker"
+
+    /// The point marker, on its own line (the separator is multi-line).
+    /// Hidden — but keeping its slot — while a drag is in flight, since
+    /// the sliding entry rows don't reflow around it.
+    private var marker: some View {
+        Text("▮")
+            .font(.system(.body, design: .monospaced))
+            .foregroundStyle(theme.key)
+            .opacity(draggingEntry == nil ? 1 : 0)
+            .id(Self.markerID)
+    }
+
+    /// An entry's line(s), bulleted like the composed prompt, with a
+    /// full-height reorder grip overlaid on the trailing edge. The
+    /// grip's icon sits on the entry's first line: pinned to the top,
+    /// a re-measure of the row (selectable text can settle a beat
+    /// late) can't move it, where a centered icon would jump.
+    private func entryRow(_ row: PreviewRow) -> some View {
+        HStack(spacing: 0) {
+            Text(Compose.linePrefix() + row.text)
+                .font(.system(.body, design: .monospaced))
+                .foregroundStyle(theme.foreground)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Grip(theme: theme).hidden()
+        }
+        .overlay(alignment: .trailing) {
+            Grip(theme: theme, iconAlignment: .top)
+                .padding(.top, 2)
+                .gesture(entryDrag(row))
+        }
+        // The dragged row rides above the rest on an opaque background,
+        // so it reads as lifted while it floats over them.
+        .background(
+            draggingEntry == row.index ? theme.hover : .clear,
+            in: RoundedRectangle(cornerRadius: 4))
+        .reorderFrame(row.id, in: Self.previewSpace)
+        .offset(
+            y: Reorder.offset(
+                for: row.id, order: entryIDs, frames: entryFrames,
+                dragging: draggingEntry.map { entryIDs[$0] },
+                dragOffset: entryDragOffset, spacing: 0)
+        )
+        .zIndex(draggingEntry == row.index ? 1 : 0)
+    }
+
+    private func entryDrag(_ row: PreviewRow) -> some Gesture {
+        DragGesture(minimumDistance: 3, coordinateSpace: .named(Self.previewSpace))
+            .onChanged { value in
+                if draggingEntry == nil { draggingEntry = row.index }
+                entryDragOffset = value.translation.height
+            }
+            .onEnded { _ in
+                if let from = draggingEntry, let to = entryDragTarget {
+                    withAnimation(.snappy(duration: 0.22)) {
+                        session.moveEntry(from: from, to: to)
+                        draggingEntry = nil
+                        entryDragOffset = 0
+                    }
+                } else {
+                    draggingEntry = nil
+                    entryDragOffset = 0
+                }
+            }
     }
 
     private var blockGrid: some View {

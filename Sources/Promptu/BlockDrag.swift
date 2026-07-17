@@ -3,16 +3,18 @@ import SwiftUI
 /// The ≡ icon marking a draggable row; the drag itself is attached by
 /// the caller. Fills whatever height it is proposed, so an overlaid
 /// grip catches clicks across the row's full height, not just the
-/// icon's.
+/// icon's. Pin the icon with `iconAlignment` when the row's height can
+/// reflow (a centered icon would jump with every re-measure).
 struct Grip: View {
     let theme: Theme
+    var iconAlignment: Alignment = .center
 
     var body: some View {
         Image(systemName: "line.3.horizontal")
             .font(.caption)
             .foregroundStyle(theme.dimmed)
             .padding(.horizontal, 6)
-            .frame(maxHeight: .infinity)
+            .frame(maxHeight: .infinity, alignment: iconAlignment)
             .contentShape(Rectangle())
     }
 }

@@ -78,6 +78,17 @@ public struct Composition: Equatable, Sendable {
         entries[target] = text
     }
 
+    /// Move the entry at `from` to index `to` (its index once the entry
+    /// has been removed); the point ends past the moved entry, as after
+    /// add. No-op when the move changes nothing.
+    public mutating func moveEntry(from: Int, to: Int) {
+        guard entries.indices.contains(from), entries.indices.contains(to), from != to
+        else { return }
+        checkpoint()
+        entries.insert(entries.remove(at: from), at: to)
+        setPoint(to + 1)
+    }
+
     /// Restore the state to before the last change. No-op when there is
     /// nothing to undo.
     public mutating func undo() {
