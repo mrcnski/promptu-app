@@ -19,6 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // LSUIElement covers bundled runs; this also covers `swift run`.
         NSApp.setActivationPolicy(.accessory)
 
+        // A steady caret instead of the system's ~1Hz pulse: every
+        // pulse dirties the panel, and the window-plus-shadow repaint
+        // reads as a faint whole-panel shimmer over dark backdrops.
+        UserDefaults.standard.set(100_000, forKey: "NSTextInsertionPointBlinkPeriodOn")
+        UserDefaults.standard.set(0, forKey: "NSTextInsertionPointBlinkPeriodOff")
+
         installEditMenu()
         registerLoginItemOnce()
 
@@ -99,8 +105,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
     }
 
+    /// Treat a popover that claims to be shown but has no visible
+    /// window as closed: reopening clears the wedge (seen once in the
+    /// wild — show succeeded invisibly and every other press then
+    /// toggled a phantom), where closing it would just hide the app.
     @objc private func toggle() {
-        popover.isShown ? close() : open()
+        let win = popover.contentViewController?.view.window
+        let visiblyShown = popover.isShown && (win?.isVisible ?? false)
+        visiblyShown ? close() : open()
     }
 
     /// A popover closed while the settings recorder was capturing (a
@@ -113,9 +125,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private func open() {
         guard let button = statusItem.button else { return }
-        NSApp.activate()
+        // A wedged (shown-but-invisible) popover must be fully closed
+        // before show, or show is a no-op against the phantom.
+        if popover.isShown { popover.performClose(nil) }
+        // Forced activation: macOS denies an accessory app's cooperative
+        // NSApp.activate(), leaving the previous app frontmost under the
+        // popover — app-scoped tools (e.g. Keyboard Maestro macros
+        // excluded from that app) then act on the wrong target while
+        // typing here. The deprecation claims the flag has no effect;
+        // empirically (macOS 15.7) it is the one call that works.
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
+        // Activating while the hotkey's modifiers are still held can
+        // leave the previous app frontmost — app-scoped tools (e.g.
+        // Keyboard Maestro's per-app macro groups) then keep acting for
+        // that app while the user types here. Re-assert once the keys
+        // are up.
+        for delay in [0.15, 0.4] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self, self.popover.isShown,
+                    NSWorkspace.shared.frontmostApplication?.processIdentifier
+                        != ProcessInfo.processInfo.processIdentifier
+                else { return }
+                NSLog("promptu: re-asserting activation (+%.2fs)", delay)
+                NSApp.activate(ignoringOtherApps: true)
+            }
+        }
+        let win = popover.contentViewController?.view.window
+        // Freeze the popover chrome's backdrop material. Live sampling
+        // recomposites the whole panel surface every time anything
+        // behind it changes — a blinking terminal cursor under the
+        // popover shimmers the entire panel at ~1Hz.
+        if let frame = win?.contentView?.superview {
+            for case let effect as NSVisualEffectView in frame.subviews {
+                effect.state = .inactive
+            }
+        }
+        NSLog(
+            "promptu: open done isShown=%d winVisible=%d screen=%@ frame=%@",
+            popover.isShown ? 1 : 0, (win?.isVisible ?? false) ? 1 : 0,
+            win?.screen?.localizedName ?? "none",
+            NSStringFromRect(win?.frame ?? .zero))
     }
 
     /// Closes the panel and hands focus back to the previous app, so a
