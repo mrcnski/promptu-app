@@ -1,3 +1,4 @@
+import AppKit
 import PromptuCore
 import SwiftUI
 
@@ -12,6 +13,10 @@ struct ComposerView: View {
     @AppStorage(ThemeChoice.defaultsKey) private var themeChoice = ThemeChoice.system
 
     @State private var drag = ReorderDrag()
+
+    /// Non-nil while an ESC waits out its meta-prefix grace window;
+    /// runs the deferred lone-ESC action when it fires.
+    @State private var pendingEscape: DispatchWorkItem?
 
     /// Where the preview's content sits relative to its viewport,
     /// driving the edge fades that mark clipped content.
@@ -35,15 +40,22 @@ struct ComposerView: View {
             } else if let error = session.loadError {
                 preview
                 Text(error).foregroundStyle(theme.error).font(.caption)
-            } else if session.editInput != nil {
-                preview
-                editField
-            } else if session.pending != nil {
-                preview
-                placeholderField
             } else {
                 preview
-                blockGrid
+                // The grid keeps its slot while a field is shown, so a
+                // submit swaps content without resizing the panel: a
+                // resize repaints the window a frame ahead of the new
+                // content, which reads as an app-wide flash.
+                ZStack(alignment: .topLeading) {
+                    blockGrid
+                        .opacity(fieldShown ? 0 : 1)
+                        .allowsHitTesting(!fieldShown)
+                    if session.editInput != nil {
+                        editField
+                    } else if session.pending != nil {
+                        placeholderField
+                    }
+                }
             }
             Divider().overlay(theme.dimmed.opacity(0.3))
             footer
@@ -248,10 +260,7 @@ struct ComposerView: View {
                 set: { session.pending?.input = $0 }
             )
         )
-        .textFieldStyle(.plain)
-        .foregroundStyle(theme.foreground)
-        .padding(6)
-        .background(theme.surface, in: RoundedRectangle(cornerRadius: 6))
+        .fieldChrome(theme)
         .focused($fieldFocused)
         .onSubmit { session.submitPlaceholder() }
         .onExitCommand { session.cancelPending() }
@@ -259,6 +268,66 @@ struct ComposerView: View {
 
     private var editField: some View {
         EditField(session: session, theme: theme, fieldFocused: $fieldFocused)
+    }
+
+    /// Emacs word motion in a focused text field: ⌥B/⌥F/⌥D — or the
+    /// ESC-prefixed pairs ESC b/f/d, ESC being Emacs' meta prefix —
+    /// forwarded to the field editor. The ESC prefix matters beyond
+    /// habit: terminal-style remap tools deliver exactly that pair
+    /// (Keyboard Maestro's terminal group types "Esc, b"), and such
+    /// app-scoped tools cannot see an LSUIElement app as frontmost to
+    /// stand down. A lone ESC still cancels the field once the grace
+    /// window passes; ESC ESC cancels immediately.
+    private func fieldMotion(_ press: KeyPress) -> KeyPress.Result {
+        if press.key == .escape && press.modifiers.isEmpty {
+            if pendingEscape != nil {
+                clearPendingEscape()
+                cancelField()
+            } else {
+                armPendingEscape { cancelField() }
+            }
+            return .handled
+        }
+        let commands: [Character: Selector] = [
+            "b": #selector(NSStandardKeyBindingResponding.moveWordBackward(_:)),
+            "f": #selector(NSStandardKeyBindingResponding.moveWordForward(_:)),
+            "d": #selector(NSStandardKeyBindingResponding.deleteWordForward(_:)),
+        ]
+        let meta =
+            press.modifiers == [.option]
+            || (pendingEscape != nil && press.modifiers.isEmpty)
+        guard meta, let selector = commands[press.key.character],
+            let responder = NSApp.keyWindow?.firstResponder
+        else { return .ignored }
+        clearPendingEscape()
+        responder.doCommand(by: selector)
+        return .handled
+    }
+
+    /// The deferred lone-ESC action; non-nil while the meta-prefix
+    /// grace window is open.
+    private func armPendingEscape(_ action: @escaping () -> Void) {
+        let work = DispatchWorkItem {
+            pendingEscape = nil
+            action()
+        }
+        pendingEscape = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: work)
+    }
+
+    private func clearPendingEscape() {
+        pendingEscape?.cancel()
+        pendingEscape = nil
+    }
+
+    private func cancelField() {
+        if session.editInput != nil {
+            session.cancelEdit()
+        } else if session.pending != nil {
+            session.cancelPending()
+        } else if session.draft != nil {
+            session.cancelDraft()
+        }
     }
 
     /// One "key action" hint, two-tone: the key bright, the label dimmed.
@@ -368,7 +437,7 @@ struct ComposerView: View {
     }
 
     private func handleKey(_ press: KeyPress) -> KeyPress.Result {
-        guard !fieldShown else { return .ignored }
+        guard !fieldShown else { return fieldMotion(press) }
         let command = press.modifiers.contains(.command)
 
         // On the editor and settings screens only "back" keys act; block
@@ -440,10 +509,31 @@ struct ComposerView: View {
             session.removeEntry()
             return .handled
         case .escape:
-            close()
+            // The same meta-prefix grace as in the fields, so a
+            // terminal-style "Esc, b" pair doesn't close the panel and
+            // leak a stray block key.
+            if pendingEscape != nil {
+                clearPendingEscape()
+                close()
+            } else {
+                armPendingEscape { close() }
+            }
             return .handled
         default:
             break
+        }
+
+        // A plain key inside the grace window is ESC-prefixed: consume
+        // it as (unused) meta input rather than a block key.
+        if pendingEscape != nil {
+            clearPendingEscape()
+            return .handled
+        }
+
+        // Block keys are plain characters: a modified press (⌥B — say,
+        // an Emacs word-motion habit) must not add a block.
+        if !press.modifiers.isDisjoint(with: [.option, .control, .command]) {
+            return .ignored
         }
 
         // Everything above may auto-repeat while held; adding is
@@ -475,15 +565,33 @@ private struct EditField: View {
 
     var body: some View {
         TextField("edit entry", text: $text)
-            .textFieldStyle(.plain)
-            .foregroundStyle(theme.foreground)
-            .padding(6)
-            .background(theme.surface, in: RoundedRectangle(cornerRadius: 6))
+            .fieldChrome(theme)
             .focused($fieldFocused)
             .onAppear { text = session.editInput ?? "" }
             .onSubmit { session.submitEdit(text) }
             .onExitCommand { session.cancelEdit() }
     }
+}
+
+/// Shared chrome for the panel's text fields: the surface background
+/// plus a key-tinted border, so an editable field stands out from the
+/// flat boxes around it.
+struct FieldChrome: ViewModifier {
+    let theme: Theme
+
+    func body(content: Content) -> some View {
+        content
+            .textFieldStyle(.plain)
+            .foregroundStyle(theme.foreground)
+            .padding(6)
+            .background(theme.surface, in: RoundedRectangle(cornerRadius: 6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6).strokeBorder(theme.key.opacity(0.45)))
+    }
+}
+
+extension View {
+    func fieldChrome(_ theme: Theme) -> some View { modifier(FieldChrome(theme: theme)) }
 }
 
 /// A block's key in its rounded badge, as shown in the composer grid

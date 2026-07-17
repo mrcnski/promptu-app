@@ -114,10 +114,7 @@ struct BlockEditorView: View {
 
     private func styledField(_ text: Binding<String>) -> some View {
         TextField("", text: text)
-            .textFieldStyle(.plain)
-            .foregroundStyle(theme.foreground)
-            .padding(6)
-            .background(theme.surface, in: RoundedRectangle(cornerRadius: 6))
+            .fieldChrome(theme)
             .onSubmit { session.submitDraft() }
             .onExitCommand { session.cancelDraft() }
     }
