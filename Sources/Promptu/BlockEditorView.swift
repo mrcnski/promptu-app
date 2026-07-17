@@ -8,6 +8,7 @@ struct BlockEditorView: View {
     let theme: Theme
     @FocusState.Binding var fieldFocused: Bool
     @State private var draggingKey: String?
+    @State private var dropTargetKey: String?
 
     var body: some View {
         if session.draft != nil {
@@ -22,13 +23,19 @@ struct BlockEditorView: View {
             ScrollView {
                 VStack(spacing: 3) {
                     ForEach(session.blocks) { block in
-                        Button {
-                            session.beginDraft(block)
-                        } label: {
-                            row(block).frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: 0) {
+                            Button {
+                                session.beginDraft(block)
+                            } label: {
+                                row(block).frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(HoverButtonStyle(theme: theme))
+                            BlockDragHandle(
+                                block: block, draggingKey: $draggingKey, theme: theme)
                         }
-                        .buttonStyle(HoverButtonStyle(theme: theme))
-                        .blockReorderable(block, draggingKey: $draggingKey, session: session)
+                        .blockDropTarget(
+                            block, draggingKey: $draggingKey, dropTargetKey: $dropTargetKey,
+                            theme: theme, session: session)
                     }
                 }
                 .animation(.default, value: session.blocks)

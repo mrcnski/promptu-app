@@ -9,6 +9,8 @@ struct ComposerView: View {
     @FocusState private var keysFocused: Bool
     @FocusState private var fieldFocused: Bool
     @State private var draggingKey: String?
+    @State private var dropTargetKey: String?
+    @State private var previewDrop: (line: Int?, gap: Int)?
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage(ThemeChoice.defaultsKey) private var themeChoice = ThemeChoice.system
 
@@ -53,10 +55,10 @@ struct ComposerView: View {
     }
 
     /// The preview split into lines, so the scroll view can target the
-    /// point marker's line.
-    private var previewLines: [String] {
-        (session.isEmpty ? "empty prompt" : session.preview)
-            .components(separatedBy: "\n")
+    /// point marker's line; each line carries the gap a dropped block
+    /// inserts at.
+    private var previewLines: [(text: String, gap: Int)] {
+        session.isEmpty ? [(text: "empty prompt", gap: 0)] : session.previewLines
     }
 
     private var preview: some View {
@@ -64,11 +66,23 @@ struct ComposerView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(previewLines.enumerated()), id: \.offset) { idx, line in
-                        Text(line)
+                        Text(line.text)
                             .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(previewColor(line))
+                            .foregroundStyle(previewColor(line.text))
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            // The insertion bar: a drop here lands above
+                            // this line.
+                            .overlay(alignment: .top) {
+                                if previewDrop?.line == idx {
+                                    Rectangle().fill(theme.key).frame(height: 2)
+                                }
+                            }
+                            .onDrop(
+                                of: [.text],
+                                delegate: PreviewDropDelegate(
+                                    line: idx, gap: line.gap, draggingKey: $draggingKey,
+                                    drop: $previewDrop, session: session))
                             .id(idx)
                     }
                 }
@@ -78,13 +92,25 @@ struct ComposerView: View {
                 // Follow the point: its marker's line when moved, the tail
                 // otherwise. The nil anchor scrolls the minimum needed.
                 let lines = previewLines
-                let target = lines.firstIndex { $0.contains("▮") } ?? lines.count - 1
+                let target = lines.firstIndex { $0.text.contains("▮") } ?? lines.count - 1
                 proxy.scrollTo(target, anchor: nil)
             }
         }
         .padding(8)
         .background(theme.surface, in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.dimmed.opacity(0.15)))
+        // The append bar: a drop on the container, outside every line,
+        // lands at the end.
+        .overlay(alignment: .bottom) {
+            if let drop = previewDrop, drop.line == nil {
+                Rectangle().fill(theme.key).frame(height: 2).padding(.horizontal, 8)
+            }
+        }
+        .onDrop(
+            of: [.text],
+            delegate: PreviewDropDelegate(
+                line: nil, gap: session.entryCount, draggingKey: $draggingKey,
+                drop: $previewDrop, session: session))
     }
 
     private func previewColor(_ line: String) -> Color {
@@ -99,26 +125,32 @@ struct ComposerView: View {
             alignment: .leading, spacing: 3
         ) {
             ForEach(session.blocks) { block in
-                Button {
-                    session.add(block)
-                } label: {
-                    HStack(spacing: 8) {
-                        Text(block.key)
-                            .font(.system(.body, design: .monospaced).bold())
-                            .foregroundStyle(theme.key)
-                            .frame(width: 22, height: 22)
-                            .background(
-                                theme.key.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
-                        blockLabel(block)
-                            .foregroundStyle(theme.foreground)
-                            .lineLimit(1)
+                HStack(spacing: 0) {
+                    Button {
+                        session.add(block)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(block.key)
+                                .font(.system(.body, design: .monospaced).bold())
+                                .foregroundStyle(theme.key)
+                                .frame(width: 22, height: 22)
+                                .background(
+                                    theme.key.opacity(0.12),
+                                    in: RoundedRectangle(cornerRadius: 5))
+                            blockLabel(block)
+                                .foregroundStyle(theme.foreground)
+                                .lineLimit(1)
+                        }
+                        // Fill the grid cell, so the hover highlight spans
+                        // the whole column.
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    // Fill the grid cell, so the hover highlight spans
-                    // the whole column.
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .buttonStyle(HoverButtonStyle(theme: theme))
+                    BlockDragHandle(block: block, draggingKey: $draggingKey, theme: theme)
                 }
-                .buttonStyle(HoverButtonStyle(theme: theme))
-                .blockReorderable(block, draggingKey: $draggingKey, session: session)
+                .blockDropTarget(
+                    block, draggingKey: $draggingKey, dropTargetKey: $dropTargetKey,
+                    theme: theme, session: session)
             }
         }
         .animation(.default, value: session.blocks)
@@ -200,7 +232,7 @@ struct ComposerView: View {
                     if session.draft == nil {
                         hintButton("esc", "back") { session.toggleEditor() }
                         Spacer()
-                        Text("click a block to edit it")
+                        Text("click a block to edit it · drag ≡ to reorder")
                             .font(.caption).foregroundStyle(theme.dimmed)
                     } else {
                         Button { session.submitDraft() } label: { hint("⏎", "save") }
