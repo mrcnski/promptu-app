@@ -178,11 +178,11 @@ final class Session: ObservableObject {
         draft = d
     }
 
-    /// Move the dragged block into the target's slot and save the new
+    /// Move the dragged block to the dropped gap and save the new
     /// order. A failed save only logs — the order still holds in
     /// memory, and the next successful save writes it out.
-    func moveBlock(_ key: String, over target: String) {
-        let moved = blocks.moving(key, over: target)
+    func moveBlock(_ key: String, toGap gap: Int) {
+        let moved = blocks.moving(key, toGap: gap)
         guard moved != blocks else { return }
         blocks = moved
         do {

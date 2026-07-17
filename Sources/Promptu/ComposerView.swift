@@ -138,34 +138,29 @@ struct ComposerView: View {
             alignment: .leading, spacing: 3
         ) {
             ForEach(session.blocks) { block in
-                HStack(spacing: 0) {
-                    Button {
-                        session.add(block)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Text(block.key)
-                                .font(.system(.body, design: .monospaced).bold())
-                                .foregroundStyle(theme.key)
-                                .frame(width: 22, height: 22)
-                                .background(
-                                    theme.key.opacity(0.12),
-                                    in: RoundedRectangle(cornerRadius: 5))
-                            blockLabel(block)
-                                .foregroundStyle(theme.foreground)
-                                .lineLimit(1)
-                        }
-                        // Fill the grid cell, so the hover highlight spans
-                        // the whole column.
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                // Clicking adds the block at the point; dragging drops
+                // it into the preview at a chosen slot. The grid is not
+                // reorderable — block order is the editor's business.
+                DraggableButton(theme: theme) {
+                    session.add(block)
+                } drag: {
+                    draggingKey = block.key
+                    return NSItemProvider(object: block.key as NSString)
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(block.key)
+                            .font(.system(.body, design: .monospaced).bold())
+                            .foregroundStyle(theme.key)
+                            .frame(width: 22, height: 22)
+                            .background(
+                                theme.key.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
+                        blockLabel(block)
+                            .foregroundStyle(theme.foreground)
+                            .lineLimit(1)
                     }
-                    .buttonStyle(HoverButtonStyle(theme: theme))
-                    // Drag source for dropping into the preview; the
-                    // grid itself is not reorderable — block order is
-                    // the editor's business.
-                    DragHandle(theme: theme) {
-                        draggingKey = block.key
-                        return NSItemProvider(object: block.key as NSString)
-                    }
+                    // Fill the grid cell, so the hover highlight spans
+                    // the whole column.
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
@@ -247,7 +242,7 @@ struct ComposerView: View {
                     if session.draft == nil {
                         hintButton("esc", "back") { session.toggleEditor() }
                         Spacer()
-                        Text("click a block to edit it · drag ≡ to reorder")
+                        Text("click a block to edit it · drag to reorder")
                             .font(.caption).foregroundStyle(theme.dimmed)
                     } else {
                         Button { session.submitDraft() } label: { hint("⏎", "save") }

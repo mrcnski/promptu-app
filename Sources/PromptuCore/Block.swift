@@ -25,17 +25,15 @@ public struct Block: Codable, Hashable, Identifiable, Sendable {
 }
 
 extension [Block] {
-    /// The list with the block for `key` moved into `target`'s slot,
-    /// shifting the blocks between them — one step of a live drag
-    /// reorder. Unchanged when either key is missing or they name the
-    /// same block.
-    public func moving(_ key: String, over target: String) -> [Block] {
-        guard let from = firstIndex(where: { $0.key == key }),
-            let to = firstIndex(where: { $0.key == target }),
-            from != to
-        else { return self }
+    /// The list with the block for `key` moved to `gap` (indices as
+    /// they are before the move) — where a drag's insertion bar shows.
+    /// Unchanged when the key is missing or the move changes nothing.
+    public func moving(_ key: String, toGap gap: Int) -> [Block] {
+        guard let from = firstIndex(where: { $0.key == key }) else { return self }
+        let dest = gap > from ? gap - 1 : gap
+        guard dest != from else { return self }
         var moved = self
-        moved.insert(moved.remove(at: from), at: to)
+        moved.insert(moved.remove(at: from), at: dest)
         return moved
     }
 }

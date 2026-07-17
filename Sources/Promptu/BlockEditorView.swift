@@ -8,7 +8,7 @@ struct BlockEditorView: View {
     let theme: Theme
     @FocusState.Binding var fieldFocused: Bool
     @State private var draggingKey: String?
-    @State private var dropTargetKey: String?
+    @State private var dropGap: Int?
 
     var body: some View {
         if session.draft != nil {
@@ -22,27 +22,44 @@ struct BlockEditorView: View {
         VStack(alignment: .leading, spacing: 3) {
             ScrollView {
                 VStack(spacing: 3) {
-                    ForEach(session.blocks) { block in
-                        HStack(spacing: 0) {
-                            Button {
-                                session.beginDraft(block)
-                            } label: {
-                                row(block).frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .buttonStyle(HoverButtonStyle(theme: theme))
-                            DragHandle(theme: theme) {
-                                draggingKey = block.key
-                                return NSItemProvider(object: block.key as NSString)
+                    ForEach(Array(session.blocks.enumerated()), id: \.element.id) {
+                        idx, block in
+                        DraggableButton(theme: theme) {
+                            session.beginDraft(block)
+                        } drag: {
+                            draggingKey = block.key
+                            return NSItemProvider(object: block.key as NSString)
+                        } label: {
+                            row(block).frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        // The insertion bar: a drop here lands above
+                        // this row.
+                        .overlay(alignment: .top) {
+                            if dropGap == idx {
+                                Rectangle().fill(theme.key).frame(height: 2)
                             }
                         }
-                        .blockDropTarget(
-                            block, draggingKey: $draggingKey, dropTargetKey: $dropTargetKey,
-                            theme: theme, session: session)
+                        .onDrop(
+                            of: [.text],
+                            delegate: BlockListDropDelegate(
+                                gap: idx, draggingKey: $draggingKey, dropGap: $dropGap,
+                                session: session))
                     }
                 }
                 .animation(.default, value: session.blocks)
             }
             .frame(maxHeight: 300)
+            // A drop below the rows appends.
+            .overlay(alignment: .bottom) {
+                if dropGap == session.blocks.count {
+                    Rectangle().fill(theme.key).frame(height: 2)
+                }
+            }
+            .onDrop(
+                of: [.text],
+                delegate: BlockListDropDelegate(
+                    gap: session.blocks.count, draggingKey: $draggingKey, dropGap: $dropGap,
+                    session: session))
             Button {
                 session.beginDraft()
             } label: {

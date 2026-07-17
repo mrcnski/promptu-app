@@ -2,10 +2,31 @@ import PromptuCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The ≡ grip a drag starts from. A dedicated handle, because block
-/// rows and cells are Buttons — which swallow the mouse-down a drag
-/// needs — and preview lines are selectable text; the grip also marks
-/// them as draggable in the first place.
+/// A hover-highlighted row/cell that runs an action on click and can
+/// also start a drag — a real Button can't, it swallows the mouse-down
+/// the drag needs.
+struct DraggableButton<Label: View>: View {
+    let theme: Theme
+    let action: () -> Void
+    let drag: () -> NSItemProvider
+    @ViewBuilder let label: () -> Label
+    @State private var hovering = false
+
+    var body: some View {
+        label()
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(hovering ? theme.hover : .clear, in: RoundedRectangle(cornerRadius: 4))
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+            .accessibilityAddTraits(.isButton)
+            .onDrag(drag)
+            .onTapGesture(perform: action)
+    }
+}
+
+/// The ≡ grip a preview entry's drag starts from: the lines themselves
+/// stay selectable text, so they can't double as the drag zone.
 struct DragHandle: View {
     let theme: Theme
     let begin: () -> NSItemProvider
@@ -19,26 +40,25 @@ struct DragHandle: View {
     }
 }
 
-/// Drop delegate for dropping one block on another: the dragged block
-/// takes the target's slot on drop. No live reordering on hover — a
-/// drag headed for the preview crosses other cells, and must not
-/// shuffle them in passing.
-struct BlockReorderDelegate: DropDelegate {
-    let targetKey: String
+/// Drop delegate for reordering the editor's block list: the dragged
+/// block moves to `gap`, marked by an insertion bar while hovering. A
+/// row's gap inserts above that row; the container's gap appends.
+struct BlockListDropDelegate: DropDelegate {
+    let gap: Int
     @Binding var draggingKey: String?
-    @Binding var dropTargetKey: String?
+    @Binding var dropGap: Int?
     let session: Session
 
     func validateDrop(info: DropInfo) -> Bool {
-        draggingKey != nil && draggingKey != targetKey
+        draggingKey != nil
     }
 
     func dropEntered(info: DropInfo) {
-        dropTargetKey = targetKey
+        dropGap = gap
     }
 
     func dropExited(info: DropInfo) {
-        if dropTargetKey == targetKey { dropTargetKey = nil }
+        if dropGap == gap { dropGap = nil }
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
@@ -46,10 +66,10 @@ struct BlockReorderDelegate: DropDelegate {
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        dropTargetKey = nil
+        dropGap = nil
         defer { draggingKey = nil }
         guard let key = draggingKey else { return false }
-        session.moveBlock(key, over: targetKey)
+        session.moveBlock(key, toGap: gap)
         return true
     }
 }
@@ -97,24 +117,5 @@ struct PreviewDropDelegate: DropDelegate {
         else { return false }
         session.insert(block, at: gap)
         return true
-    }
-}
-
-extension View {
-    /// Make this row/cell a reorder drop target, highlighted while a
-    /// dragged block hovers over it.
-    func blockDropTarget(
-        _ block: Block, draggingKey: Binding<String?>, dropTargetKey: Binding<String?>,
-        theme: Theme, session: Session
-    ) -> some View {
-        background(
-            dropTargetKey.wrappedValue == block.key ? theme.hover : .clear,
-            in: RoundedRectangle(cornerRadius: 4)
-        )
-        .onDrop(
-            of: [.text],
-            delegate: BlockReorderDelegate(
-                targetKey: block.key, draggingKey: draggingKey,
-                dropTargetKey: dropTargetKey, session: session))
     }
 }
