@@ -90,7 +90,6 @@ struct SettingsView: View {
     /// again instead of toggling the panel.
     private func startRecording() {
         recording = true
-        recordingError = nil
         NotificationCenter.default.post(name: .hotKeySuspend, object: nil)
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             handleRecorded(event)
@@ -114,16 +113,16 @@ struct SettingsView: View {
             display: HotKeySpec.display(flags, key: event.charactersIgnoringModifiers ?? "?"))
         spec.save()
         hotKeyDisplay = spec.display
-        recordingError = nil
         stopRecording()
     }
 
-    /// End recording (with or without a new hotkey saved) and
-    /// re-register from the stored spec.
+    /// End recording (with or without a new hotkey saved), drop any
+    /// mid-recording error, and re-register from the stored spec.
     private func stopRecording() {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         recording = false
+        recordingError = nil
         NotificationCenter.default.post(name: .hotKeyReload, object: nil)
     }
 }
