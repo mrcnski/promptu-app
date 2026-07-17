@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // LSUIElement covers bundled runs; this also covers `swift run`.
         NSApp.setActivationPolicy(.accessory)
 
+        installEditMenu()
         registerLoginItemOnce()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -48,6 +49,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.hotKey = nil }
         }
+    }
+
+    /// Editing shortcuts (⌘C, ⌘V, ⌘A, undo…) only work when a main menu
+    /// defines their key equivalents, and a programmatic accessory app
+    /// starts with none. The menu is never shown; it exists purely to
+    /// route those keys to the focused text field.
+    private func installEditMenu() {
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(
+            withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+
+        let bar = NSMenu()
+        let item = NSMenuItem()
+        item.submenu = edit
+        bar.addItem(item)
+        NSApp.mainMenu = bar
     }
 
     /// Register as a login item on the first launch from /Applications,
