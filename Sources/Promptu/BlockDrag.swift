@@ -25,18 +25,27 @@ struct DraggableButton<Label: View>: View {
     }
 }
 
-/// The ≡ grip a preview entry's drag starts from: the lines themselves
-/// stay selectable text, so they can't double as the drag zone.
-struct DragHandle: View {
+/// The ≡ icon marking a draggable row.
+struct Grip: View {
     let theme: Theme
-    let begin: () -> NSItemProvider
 
     var body: some View {
         Image(systemName: "line.3.horizontal")
             .font(.caption)
             .foregroundStyle(theme.dimmed)
             .padding(.horizontal, 2)
-            .onDrag(begin)
+    }
+}
+
+/// A grip a drag starts from, for preview entries: the lines
+/// themselves stay selectable text, so they can't double as the drag
+/// zone.
+struct DragHandle: View {
+    let theme: Theme
+    let begin: () -> NSItemProvider
+
+    var body: some View {
+        Grip(theme: theme).onDrag(begin)
     }
 }
 

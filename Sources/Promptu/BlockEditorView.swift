@@ -21,7 +21,10 @@ struct BlockEditorView: View {
     private var list: some View {
         VStack(alignment: .leading, spacing: 3) {
             ScrollView {
-                VStack(spacing: 3) {
+                // No spacing between the rows' drop zones: a gap would
+                // fall through to the container target below and
+                // flicker its append bar while the drag crosses it.
+                VStack(spacing: 0) {
                     ForEach(Array(session.blocks.enumerated()), id: \.element.id) {
                         idx, block in
                         DraggableButton(theme: theme) {
@@ -30,7 +33,10 @@ struct BlockEditorView: View {
                             draggingKey = block.key
                             return NSItemProvider(object: block.key as NSString)
                         } label: {
-                            row(block).frame(maxWidth: .infinity, alignment: .leading)
+                            HStack(spacing: 0) {
+                                row(block).frame(maxWidth: .infinity, alignment: .leading)
+                                Grip(theme: theme)
+                            }
                         }
                         // The insertion bar: a drop here lands above
                         // this row.
@@ -39,6 +45,7 @@ struct BlockEditorView: View {
                                 Rectangle().fill(theme.key).frame(height: 2)
                             }
                         }
+                        .padding(.bottom, 3)
                         .onDrop(
                             of: [.text],
                             delegate: BlockListDropDelegate(
