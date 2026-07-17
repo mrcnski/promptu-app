@@ -59,11 +59,7 @@ struct BlockEditorView: View {
 
     private func row(_ block: Block) -> some View {
         HStack(spacing: 8) {
-            Text(block.key)
-                .font(.system(.body, design: .monospaced).bold())
-                .foregroundStyle(theme.key)
-                .frame(width: 22, height: 22)
-                .background(theme.key.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
+            KeyBadge(theme: theme, key: block.key)
             VStack(alignment: .leading, spacing: 1) {
                 Text(block.desc.isEmpty ? block.text : block.desc)
                     .foregroundStyle(theme.foreground)

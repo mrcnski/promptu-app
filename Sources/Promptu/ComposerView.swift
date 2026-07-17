@@ -213,12 +213,7 @@ struct ComposerView: View {
                     session.add(block)
                 } label: {
                     HStack(spacing: 8) {
-                        Text(block.key)
-                            .font(.system(.body, design: .monospaced).bold())
-                            .foregroundStyle(theme.key)
-                            .frame(width: 22, height: 22)
-                            .background(
-                                theme.key.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
+                        KeyBadge(theme: theme, key: block.key)
                         blockLabel(block)
                             .foregroundStyle(theme.foreground)
                             .lineLimit(1)
@@ -470,6 +465,21 @@ struct ComposerView: View {
             return .handled
         }
         return .ignored
+    }
+}
+
+/// A block's key in its rounded badge, as shown in the composer grid
+/// and the editor's block list.
+struct KeyBadge: View {
+    let theme: Theme
+    let key: String
+
+    var body: some View {
+        Text(key)
+            .font(.system(.body, design: .monospaced).bold())
+            .foregroundStyle(theme.key)
+            .frame(width: 22, height: 22)
+            .background(theme.key.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
     }
 }
 
