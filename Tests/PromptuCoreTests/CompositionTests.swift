@@ -151,15 +151,17 @@ import Testing
     c.add("b")
     #expect(c.previewLines.map(\.text) == ["- a", "- b"])
     #expect(c.previewLines.map(\.gap) == [0, 1])
+    #expect(c.previewLines.map(\.entry) == [0, 1])
 }
 
-@Test func previewLinesGiveMarkerLineThePointGap() {
+@Test func previewLinesGiveMarkerLineThePointGapAndNoEntry() {
     var c = Composition()
     c.add("a")
     c.add("b")
     c.pointUp()
     #expect(c.previewLines.map(\.text) == ["- a", "▮", "- b"])
     #expect(c.previewLines.map(\.gap) == [0, 1, 1])
+    #expect(c.previewLines.map(\.entry) == [0, nil, 1])
 }
 
 @Test func previewLinesKeepMultilineEntryOnOneSlot() {
@@ -168,4 +170,50 @@ import Testing
     c.add("c")
     #expect(c.previewLines.map(\.text) == ["- a", "b", "- c"])
     #expect(c.previewLines.map(\.gap) == [0, 0, 1])
+    #expect(c.previewLines.map(\.entry) == [0, 0, 1])
+}
+
+// MARK: - moveEntry
+
+@Test func moveEntryForwardLandsBeforeTheGapsEntry() {
+    var c = Composition()
+    c.add("a")
+    c.add("b")
+    c.add("c")
+    c.moveEntry(from: 0, to: 2)  // before "c"
+    #expect(c.entries == ["b", "a", "c"])
+    #expect(c.point == 2)
+}
+
+@Test func moveEntryBackwardLandsAtTheGap() {
+    var c = Composition()
+    c.add("a")
+    c.add("b")
+    c.add("c")
+    c.moveEntry(from: 2, to: 0)
+    #expect(c.entries == ["c", "a", "b"])
+    #expect(c.point == 1)
+}
+
+@Test func moveEntryToItsOwnGapsIsNoop() {
+    var c = Composition()
+    c.add("a")
+    c.add("b")
+    c.moveEntry(from: 1, to: 1)  // the gap right above itself
+    c.moveEntry(from: 1, to: 2)  // the gap right below itself
+    #expect(c.entries == ["a", "b"])
+    #expect(c.point == nil)
+    c.undo()  // no-ops must not have checkpointed
+    #expect(c.entries == ["a"])
+}
+
+@Test func moveEntryToTheEndAppendsAndIsUndoable() {
+    var c = Composition()
+    c.add("a")
+    c.add("b")
+    c.moveEntry(from: 0, to: 2)
+    #expect(c.entries == ["b", "a"])
+    #expect(c.point == nil)
+    c.undo()
+    #expect(c.entries == ["a", "b"])
 }

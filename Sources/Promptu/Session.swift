@@ -52,7 +52,7 @@ final class Session: ObservableObject {
 
     var isEmpty: Bool { composition.entries.isEmpty }
     var preview: String { composition.preview }
-    var previewLines: [(text: String, gap: Int)] { composition.previewLines }
+    var previewLines: [(text: String, gap: Int, entry: Int?)] { composition.previewLines }
     var entryCount: Int { composition.entries.count }
 
     func add(_ block: Block) {
@@ -93,6 +93,7 @@ final class Session: ObservableObject {
     }
 
     func removeEntry() { composition.removeEntry() }
+    func moveEntry(_ index: Int, to gap: Int) { composition.moveEntry(from: index, to: gap) }
     func pointUp() { composition.pointUp() }
     func pointDown() { composition.pointDown() }
     func undo() { composition.undo() }

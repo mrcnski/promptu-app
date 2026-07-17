@@ -9,7 +9,7 @@ struct ComposerView: View {
     @FocusState private var keysFocused: Bool
     @FocusState private var fieldFocused: Bool
     @State private var draggingKey: String?
-    @State private var dropTargetKey: String?
+    @State private var draggingEntry: Int?
     @State private var previewDrop: (line: Int?, gap: Int)?
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage(ThemeChoice.defaultsKey) private var themeChoice = ThemeChoice.system
@@ -57,8 +57,8 @@ struct ComposerView: View {
     /// The preview split into lines, so the scroll view can target the
     /// point marker's line; each line carries the gap a dropped block
     /// inserts at.
-    private var previewLines: [(text: String, gap: Int)] {
-        session.isEmpty ? [(text: "empty prompt", gap: 0)] : session.previewLines
+    private var previewLines: [(text: String, gap: Int, entry: Int?)] {
+        session.isEmpty ? [(text: "empty prompt", gap: 0, entry: nil)] : session.previewLines
     }
 
     private var preview: some View {
@@ -66,24 +66,37 @@ struct ComposerView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(previewLines.enumerated()), id: \.offset) { idx, line in
-                        Text(line.text)
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(previewColor(line.text))
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            // The insertion bar: a drop here lands above
-                            // this line.
-                            .overlay(alignment: .top) {
-                                if previewDrop?.line == idx {
-                                    Rectangle().fill(theme.key).frame(height: 2)
+                        HStack(spacing: 0) {
+                            Text(line.text)
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundStyle(previewColor(line.text))
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            // The grip on an entry's first line drags
+                            // the entry to another slot.
+                            if let entry = line.entry,
+                                idx == 0 || previewLines[idx - 1].entry != entry
+                            {
+                                DragHandle(theme: theme) {
+                                    draggingEntry = entry
+                                    return NSItemProvider(object: String(entry) as NSString)
                                 }
                             }
-                            .onDrop(
-                                of: [.text],
-                                delegate: PreviewDropDelegate(
-                                    line: idx, gap: line.gap, draggingKey: $draggingKey,
-                                    drop: $previewDrop, session: session))
-                            .id(idx)
+                        }
+                        // The insertion bar: a drop here lands above
+                        // this line.
+                        .overlay(alignment: .top) {
+                            if previewDrop?.line == idx {
+                                Rectangle().fill(theme.key).frame(height: 2)
+                            }
+                        }
+                        .onDrop(
+                            of: [.text],
+                            delegate: PreviewDropDelegate(
+                                line: idx, gap: line.gap, draggingKey: $draggingKey,
+                                draggingEntry: $draggingEntry, drop: $previewDrop,
+                                session: session))
+                        .id(idx)
                     }
                 }
             }
@@ -110,7 +123,7 @@ struct ComposerView: View {
             of: [.text],
             delegate: PreviewDropDelegate(
                 line: nil, gap: session.entryCount, draggingKey: $draggingKey,
-                drop: $previewDrop, session: session))
+                draggingEntry: $draggingEntry, drop: $previewDrop, session: session))
     }
 
     private func previewColor(_ line: String) -> Color {
@@ -146,14 +159,16 @@ struct ComposerView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(HoverButtonStyle(theme: theme))
-                    BlockDragHandle(block: block, draggingKey: $draggingKey, theme: theme)
+                    // Drag source for dropping into the preview; the
+                    // grid itself is not reorderable — block order is
+                    // the editor's business.
+                    DragHandle(theme: theme) {
+                        draggingKey = block.key
+                        return NSItemProvider(object: block.key as NSString)
+                    }
                 }
-                .blockDropTarget(
-                    block, draggingKey: $draggingKey, dropTargetKey: $dropTargetKey,
-                    theme: theme, session: session)
             }
         }
-        .animation(.default, value: session.blocks)
     }
 
     /// The block's menu label: its desc plus colored <placeholder> hints,

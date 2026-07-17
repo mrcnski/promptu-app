@@ -2,24 +2,20 @@ import PromptuCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The grip a block drag starts from. A dedicated handle, because the
-/// rows and cells are Buttons and a Button swallows the mouse-down a
-/// drag needs; the grip also marks them as draggable in the first
-/// place.
-struct BlockDragHandle: View {
-    let block: Block
-    @Binding var draggingKey: String?
+/// The ≡ grip a drag starts from. A dedicated handle, because block
+/// rows and cells are Buttons — which swallow the mouse-down a drag
+/// needs — and preview lines are selectable text; the grip also marks
+/// them as draggable in the first place.
+struct DragHandle: View {
     let theme: Theme
+    let begin: () -> NSItemProvider
 
     var body: some View {
         Image(systemName: "line.3.horizontal")
             .font(.caption)
             .foregroundStyle(theme.dimmed)
             .padding(.horizontal, 2)
-            .onDrag {
-                draggingKey = block.key
-                return NSItemProvider(object: block.key as NSString)
-            }
+            .onDrag(begin)
     }
 }
 
@@ -58,18 +54,20 @@ struct BlockReorderDelegate: DropDelegate {
     }
 }
 
-/// Drop delegate for dropping a dragged block onto the preview: insert
-/// it at the hovered line's gap. A nil line is the preview container
+/// Drop delegate for the preview: a block dragged from the grid is
+/// inserted at the hovered line's gap, an entry dragged from another
+/// preview line is moved there. A nil line is the preview container
 /// itself, whose gap appends at the end.
 struct PreviewDropDelegate: DropDelegate {
     let line: Int?
     let gap: Int
     @Binding var draggingKey: String?
+    @Binding var draggingEntry: Int?
     @Binding var drop: (line: Int?, gap: Int)?
     let session: Session
 
     func validateDrop(info: DropInfo) -> Bool {
-        draggingKey != nil
+        draggingKey != nil || draggingEntry != nil
     }
 
     func dropEntered(info: DropInfo) {
@@ -81,12 +79,19 @@ struct PreviewDropDelegate: DropDelegate {
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .copy)
+        DropProposal(operation: draggingEntry != nil ? .move : .copy)
     }
 
     func performDrop(info: DropInfo) -> Bool {
         drop = nil
-        defer { draggingKey = nil }
+        defer {
+            draggingKey = nil
+            draggingEntry = nil
+        }
+        if let entry = draggingEntry {
+            session.moveEntry(entry, to: gap)
+            return true
+        }
         guard let key = draggingKey,
             let block = session.blocks.first(where: { $0.key == key })
         else { return false }

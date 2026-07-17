@@ -30,8 +30,10 @@ struct BlockEditorView: View {
                                 row(block).frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .buttonStyle(HoverButtonStyle(theme: theme))
-                            BlockDragHandle(
-                                block: block, draggingKey: $draggingKey, theme: theme)
+                            DragHandle(theme: theme) {
+                                draggingKey = block.key
+                                return NSItemProvider(object: block.key as NSString)
+                            }
                         }
                         .blockDropTarget(
                             block, draggingKey: $draggingKey, dropTargetKey: $dropTargetKey,
