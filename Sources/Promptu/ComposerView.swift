@@ -146,11 +146,14 @@ struct ComposerView: View {
             .onChange(of: session.preview) {
                 // Follow the point: its marker when moved, the tail
                 // otherwise. The nil anchor scrolls the minimum needed.
-                if session.pointGap != nil {
-                    proxy.scrollTo(Self.markerID, anchor: nil)
-                } else if let last = entryRows.last {
-                    proxy.scrollTo(last.id, anchor: nil)
-                }
+                // A frame later, because the popover window grows a
+                // frame behind the content: scrolling against the
+                // still-small viewport shifts every row up, and the
+                // resize snaps them back — a visible bounce.
+                let target: AnyHashable? =
+                    session.pointGap != nil ? Self.markerID : entryRows.last?.id
+                guard let target else { return }
+                DispatchQueue.main.async { proxy.scrollTo(target, anchor: nil) }
             }
         }
         .padding(8)
