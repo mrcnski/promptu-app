@@ -606,6 +606,19 @@ private struct EditField: View {
     @FocusState.Binding var fieldFocused: Bool
     @State private var text = ""
 
+    /// What the open edit acts on — the field itself looks the same
+    /// for an entry and for the whole prompt.
+    private var caption: String {
+        if session.editingAll {
+            return "editing whole prompt · saves as a single entry · ⌥⏎ newline"
+        }
+        let count = session.entries.count
+        let target = (session.pointGap ?? count) - 1
+        return target == count - 1
+            ? "editing last entry · ⌥⏎ newline"
+            : "editing entry \(target + 1) of \(count) · ⌥⏎ newline"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             TextField(
@@ -617,10 +630,8 @@ private struct EditField: View {
             .onAppear { text = session.editInput ?? "" }
             .onSubmit { session.submitEdit(text) }
             .onExitCommand { session.cancelEdit() }
-            if session.editingAll {
-                Text("saves as a single entry · ⌥⏎ newline")
-                    .font(.caption).foregroundStyle(theme.dimmed)
-            }
+            Text(caption)
+                .font(.caption).foregroundStyle(theme.dimmed)
         }
     }
 }
