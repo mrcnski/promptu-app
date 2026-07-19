@@ -26,9 +26,19 @@ final class Session: ObservableObject {
         var error: String?
     }
 
+    /// One block-list page: a *.json in the config directory.
+    /// blocks.json is page zero; ←/→ cycles the composer between
+    /// pages, and the Block Editor edits the one showing.
+    struct Page {
+        let name: String
+        let url: URL
+        var blocks: [Block]
+    }
+
     let loadError: String?
 
-    @Published private(set) var blocks: [Block]
+    @Published private(set) var pages: [Page]
+    @Published private(set) var pageIndex: Int
     @Published private var composition = Composition()
     @Published var negateNext = false
     @Published var pending: Pending?
@@ -43,13 +53,50 @@ final class Session: ObservableObject {
     enum Screen { case composer, editor, settings }
 
     init() {
-        do {
-            blocks = try BlocksConfig.loadOrSeed()
-            loadError = nil
-        } catch {
-            blocks = []
-            loadError = "Can't read \(BlocksConfig.defaultURL.path): \(error.localizedDescription)"
+        // Seed the bundled preset pages once: deleting one afterwards
+        // removes the page for good instead of it returning next launch.
+        let store = UserDefaults.standard
+        if !store.bool(forKey: "presetsSeeded") {
+            store.set(true, forKey: "presetsSeeded")
+            try? Presets.seed()
         }
+
+        var pages: [Page] = []
+        var loadError: String?
+        for url in Presets.pageURLs() {
+            let name =
+                url == BlocksConfig.defaultURL
+                ? "basic blocks" : url.deletingPathExtension().lastPathComponent
+            if url == BlocksConfig.defaultURL {
+                do {
+                    pages.append(Page(name: name, url: url, blocks: try BlocksConfig.loadOrSeed()))
+                } catch {
+                    pages.append(Page(name: name, url: url, blocks: []))
+                    loadError = "Can't read \(url.path): \(error.localizedDescription)"
+                }
+            } else if let blocks = try? BlocksConfig.load(url) {
+                pages.append(Page(name: name, url: url, blocks: blocks))
+            } else {
+                // A broken preset page must not take the panel down.
+                NSLog("promptu: can't read page \(url.path), skipping")
+            }
+        }
+        self.pages = pages
+        self.loadError = loadError
+        pageIndex = min(max(store.integer(forKey: "pageIndex"), 0), pages.count - 1)
+    }
+
+    /// The active page's blocks — what the grid, key lookup, and Block
+    /// Editor all act on.
+    var blocks: [Block] { pages[pageIndex].blocks }
+    var pageName: String { pages[pageIndex].name }
+
+    /// Cycle the active page by `delta`, wrapping; the choice persists
+    /// across launches.
+    func cyclePage(_ delta: Int) {
+        guard pages.count > 1 else { return }
+        pageIndex = (pageIndex + delta + pages.count) % pages.count
+        UserDefaults.standard.set(pageIndex, forKey: "pageIndex")
     }
 
     var isEmpty: Bool { composition.entries.isEmpty }
@@ -208,9 +255,9 @@ final class Session: ObservableObject {
         var updated = blocks
         updated.insert(updated.remove(at: from), at: to)
         guard updated != blocks else { return }
-        blocks = updated
+        pages[pageIndex].blocks = updated
         do {
-            try BlocksConfig.save(blocks)
+            try BlocksConfig.save(updated, to: pages[pageIndex].url)
         } catch {
             NSLog("promptu: can't save block order: \(error.localizedDescription)")
         }
@@ -226,12 +273,13 @@ final class Session: ObservableObject {
         if let error = persist(updated) { draft?.error = error }
     }
 
-    /// Save the list to blocks.json; on success adopt it, close the
-    /// draft form, and return nil. On failure return the error text.
+    /// Save the list to the active page's file; on success adopt it,
+    /// close the draft form, and return nil. On failure return the
+    /// error text.
     private func persist(_ updated: [Block]) -> String? {
         do {
-            try BlocksConfig.save(updated)
-            blocks = updated
+            try BlocksConfig.save(updated, to: pages[pageIndex].url)
+            pages[pageIndex].blocks = updated
             draft = nil
             return nil
         } catch {

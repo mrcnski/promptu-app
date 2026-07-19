@@ -1,8 +1,8 @@
 import PromptuCore
 import SwiftUI
 
-/// In-popover editor for the shared blocks.json: the block list, and a
-/// small form for adding, editing, or deleting one block.
+/// In-popover editor for the active block-list page: the block list,
+/// and a small form for adding, editing, or deleting one block.
 struct BlockEditorView: View {
     @ObservedObject var session: Session
     let theme: Theme

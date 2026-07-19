@@ -34,6 +34,7 @@ struct ComposerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if session.screen == .editor {
+                pageRow
                 BlockEditorView(session: session, theme: theme, fieldFocused: $fieldFocused)
             } else if session.screen == .settings {
                 SettingsView(theme: theme)
@@ -42,6 +43,7 @@ struct ComposerView: View {
                 Text(error).foregroundStyle(theme.error).font(.caption)
             } else {
                 preview
+                pageRow
                 // The grid keeps its slot while a field is shown, so a
                 // submit swaps content without resizing the panel: a
                 // resize repaints the window a frame ahead of the new
@@ -218,12 +220,44 @@ struct ComposerView: View {
         .zIndex(drag.draggingID == row.id ? 1 : 0)
     }
 
+    /// The active page's name between ◀ ▶ cycling buttons, over the
+    /// block grid and the editor list. Absent with a single page —
+    /// there is nothing to cycle to.
+    @ViewBuilder
+    private var pageRow: some View {
+        if session.pages.count > 1 {
+            HStack(spacing: 2) {
+                pageArrow("◀", -1)
+                Text(session.pageName).font(.caption).foregroundStyle(theme.dimmed)
+                pageArrow("▶", 1)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func pageArrow(_ label: String, _ delta: Int) -> some View {
+        Button { if !fieldShown { session.cyclePage(delta) } } label: {
+            Text(label).font(.caption2).foregroundStyle(theme.foreground.opacity(0.8))
+        }
+        .buttonStyle(HoverButtonStyle(theme: theme, horizontalPadding: 3))
+        .opacity(fieldShown ? 0.4 : 1)
+        .allowsHitTesting(!fieldShown)
+    }
+
+    /// Two columns of blocks, or one when any label on the page needs
+    /// the width — the preset pages' fuller sentences would truncate
+    /// in a half-width cell.
+    private var gridColumns: [GridItem] {
+        let long = session.blocks.contains { label in
+            let hints = Compose.placeholderHints(label) ?? ""
+            return label.desc.count + hints.count > 20
+        }
+        let column = GridItem(.flexible(), alignment: .leading)
+        return long ? [column] : [column, column]
+    }
+
     private var blockGrid: some View {
-        LazyVGrid(
-            columns: [GridItem(.flexible(), alignment: .leading),
-                      GridItem(.flexible(), alignment: .leading)],
-            alignment: .leading, spacing: 3
-        ) {
+        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 3) {
             ForEach(session.blocks) { block in
                 Button {
                     session.add(block)
@@ -491,6 +525,10 @@ struct ComposerView: View {
                 session.toggleSettings()
                 return .handled
             }
+            if press.key == .leftArrow || press.key == .rightArrow {
+                session.cyclePage(press.key == .leftArrow ? -1 : 1)
+                return .handled
+            }
             return .ignored
         case .settings:
             if press.key == .escape || (command && press.key.character == ",") {
@@ -544,6 +582,12 @@ struct ComposerView: View {
             return .handled
         case .downArrow:
             session.pointDown()
+            return .handled
+        case .leftArrow:
+            session.cyclePage(-1)
+            return .handled
+        case .rightArrow:
+            session.cyclePage(1)
             return .handled
         // Backspace arrives as DEL (U+7F), not KeyEquivalent.delete (U+8).
         case .delete, KeyEquivalent("\u{7F}"):

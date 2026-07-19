@@ -64,6 +64,18 @@ re-read on app restart.
 Blocks can also be edited in-app: `⌘B` opens the Block Editor.  Click a block to
 change or delete it, or add a new one.
 
+### Presets
+
+`←`/`→` cycle between pages of blocks: `blocks.json` plus every other `.json`
+file in `~/.config/promptu/`, one page per file.  The Block Editor edits
+whichever page is showing.
+
+Some preset pages are bundled: `understand`, `build`, `ship`, `fix`.  These are
+adapted from the [Claude Code prompt
+library](https://code.claude.com/docs/en/prompt-library).  They are seeded once
+on first launch; delete a file to drop its page (it stays gone), or add your own
+`.json` to gain one.
+
 ## Build
 
 ```sh
@@ -84,7 +96,6 @@ settings toggle if you want one.
 ## Todo
 
 - History
-- Whole-prompt free-text editing
 - Custom separator / negation prefix (fixed at `"\n- "` / `"don't "`)
 - Universal (Intel + Apple Silicon) release binaries — needs full Xcode
   for `swift build --arch arm64 --arch x86_64`; releases are currently
