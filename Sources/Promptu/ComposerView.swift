@@ -270,19 +270,22 @@ struct ComposerView: View {
         EditField(session: session, theme: theme, fieldFocused: $fieldFocused)
     }
 
-    /// Keys while a text field is focused. Emacs word motion —
-    /// ⌥B/⌥F/⌥D, or the ESC-prefixed pairs ESC b/f/d, ESC being Emacs'
-    /// meta prefix — is forwarded to the field editor. The ESC prefix
-    /// matters beyond habit: terminal-scoped remap tools deliver
-    /// exactly that pair for a physical ⌥B (Keyboard Maestro types
-    /// "Esc, b"), and they cannot see an LSUIElement app as frontmost
-    /// to stand down. A lone ESC still cancels the field once the
-    /// grace window passes; ESC ESC cancels immediately.
-    /// The word-motion selectors behind M-b/M-f/M-d.
-    private nonisolated static let wordMotions: [Character: Selector] = [
+    /// Keys while a text field is focused. Emacs meta keys —
+    /// ⌥B/⌥F/⌥D/⌥⏎, or the ESC-prefixed pairs ESC b/f/d/⏎, ESC being
+    /// Emacs' meta prefix — are forwarded to the field editor. The ESC
+    /// prefix matters beyond habit: terminal-scoped remap tools
+    /// deliver exactly that pair for a physical ⌥B (Keyboard Maestro
+    /// types "Esc, b"), and they cannot see an LSUIElement app as
+    /// frontmost to stand down. A lone ESC still cancels the field
+    /// once the grace window passes; ESC ESC cancels immediately.
+    /// The field-editor selectors behind the meta keys: word motion
+    /// M-b/M-f/M-d, and M-⏎ inserting the newline that a plain Return
+    /// (submit) can't type.
+    private nonisolated static let fieldCommands: [Character: Selector] = [
         "b": #selector(NSStandardKeyBindingResponding.moveWordBackward(_:)),
         "f": #selector(NSStandardKeyBindingResponding.moveWordForward(_:)),
         "d": #selector(NSStandardKeyBindingResponding.deleteWordForward(_:)),
+        "\r": #selector(NSStandardKeyBindingResponding.insertNewlineIgnoringFieldEditor(_:)),
     ]
 
     private func handleFieldKey(_ press: KeyPress) -> KeyPress.Result {
@@ -298,7 +301,7 @@ struct ComposerView: View {
         let meta =
             press.modifiers == [.option]
             || (pendingEscape != nil && press.modifiers.isEmpty)
-        guard meta, let selector = Self.wordMotions[press.key.character],
+        guard meta, let selector = Self.fieldCommands[press.key.character],
             let responder = NSApp.keyWindow?.firstResponder
         else { return .ignored }
         clearPendingEscape()
@@ -405,9 +408,7 @@ struct ComposerView: View {
                     Spacer()
                     hintButton("⌘E", "edit") { session.beginEdit() }
                     Spacer()
-                    hintButton("⌘Z", "undo") { session.undo() }
-                    Spacer()
-                    hintButton("⏎", "copy") { if session.finish() { close() } }
+                    hintButton("⇧⌘E", "edit all") { session.beginEditAll() }
                 }
             }
             HStack {
@@ -416,13 +417,17 @@ struct ComposerView: View {
                 }
                 .buttonStyle(HoverButtonStyle(theme: theme))
                 Button { session.toggleEditor() } label: {
-                    hint("⌘B", session.screen == .editor ? "compose" : "block editor")
+                    hint("⌘B", session.screen == .editor ? "compose" : "blocks")
                 }
                 .buttonStyle(HoverButtonStyle(theme: theme))
-                Spacer()
                 Button { NSApp.terminate(nil) } label: { hint("⌘Q", "quit") }
                     .buttonStyle(HoverButtonStyle(theme: theme))
                     .keyboardShortcut("q", modifiers: .command)
+                Spacer()
+                if session.screen == .composer {
+                    hintButton("⌘Z", "undo") { session.undo() }
+                    hintButton("⏎", "copy") { if session.finish() { close() } }
+                }
             }
         }
     }
@@ -470,7 +475,8 @@ struct ComposerView: View {
         }
 
         if command {
-            switch press.key.character {
+            // Case-folded: shift capitalizes the character (⇧⌘E, ⇧⌘Z).
+            switch press.key.character.lowercased() {
             case "b":
                 session.toggleEditor()
                 return .handled
@@ -478,7 +484,8 @@ struct ComposerView: View {
                 session.toggleSettings()
                 return .handled
             case "e":
-                session.beginEdit()
+                press.modifiers.contains(.shift)
+                    ? session.beginEditAll() : session.beginEdit()
                 return .handled
             case "z":
                 press.modifiers.contains(.shift) ? session.redo() : session.undo()
@@ -559,6 +566,8 @@ struct ComposerView: View {
 /// on submit: routing keystrokes through the session would re-render
 /// the whole panel per key, and the field's end-editing write-back on
 /// teardown would fight submitEdit's close (the old enter-twice bug).
+/// The vertical axis lets a multi-line text — a whole-prompt blob —
+/// show all its lines; Return still submits, ⌥⏎ inserts a newline.
 private struct EditField: View {
     @ObservedObject var session: Session
     let theme: Theme
@@ -566,12 +575,21 @@ private struct EditField: View {
     @State private var text = ""
 
     var body: some View {
-        TextField("edit entry", text: $text)
+        VStack(alignment: .leading, spacing: 4) {
+            TextField(
+                session.editingAll ? "edit prompt" : "edit entry",
+                text: $text, axis: .vertical
+            )
             .fieldChrome(theme)
             .focused($fieldFocused)
             .onAppear { text = session.editInput ?? "" }
             .onSubmit { session.submitEdit(text) }
             .onExitCommand { session.cancelEdit() }
+            if session.editingAll {
+                Text("saves as a single entry · ⌥⏎ newline")
+                    .font(.caption).foregroundStyle(theme.dimmed)
+            }
+        }
     }
 }
 

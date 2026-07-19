@@ -95,15 +95,33 @@ final class Session: ObservableObject {
     func undo() { composition.undo() }
     func redo() { composition.redo() }
 
+    /// Whether the open edit spans the whole prompt: submitting then
+    /// replaces every entry with the field's text.
+    private(set) var editingAll = false
+
     func beginEdit() {
-        if let entry = composition.targetEntry { editInput = entry }
+        if let entry = composition.targetEntry {
+            editingAll = false
+            editInput = entry
+        }
     }
 
-    /// Blank input leaves the entry unchanged; removing an entry is
+    /// Edit the whole prompt as one text, in its composed form.
+    /// Submitting collapses the entries into a single blob entry — the
+    /// edited text no longer maps onto the individual entries.
+    func beginEditAll() {
+        guard !isEmpty else { return }
+        editingAll = true
+        editInput = composition.composed
+    }
+
+    /// Blank input leaves the prompt unchanged; removing an entry is
     /// backspace's job.
     func submitEdit(_ text: String) {
         if !text.trimmingCharacters(in: .whitespaces).isEmpty {
-            composition.replaceEntry(with: text)
+            editingAll
+                ? composition.replaceAll(with: text)
+                : composition.replaceEntry(with: text)
         }
         editInput = nil
     }

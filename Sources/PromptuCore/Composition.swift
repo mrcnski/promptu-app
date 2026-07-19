@@ -78,6 +78,18 @@ public struct Composition: Equatable, Sendable {
         entries[target] = text
     }
 
+    /// Replace every entry with `text`, the prompt in composed form: a
+    /// leading line prefix is stripped and the rest becomes one blob
+    /// entry, so re-composing reproduces the text. The point ends at
+    /// the end. No-op when the prompt is empty.
+    public mutating func replaceAll(with text: String) {
+        guard !entries.isEmpty else { return }
+        checkpoint()
+        let prefix = Compose.linePrefix()
+        entries = [text.hasPrefix(prefix) ? String(text.dropFirst(prefix.count)) : text]
+        point = nil
+    }
+
     /// Move the entry at `from` to index `to` (its index once the entry
     /// has been removed); the point ends past the moved entry, as after
     /// add. No-op when the move changes nothing.

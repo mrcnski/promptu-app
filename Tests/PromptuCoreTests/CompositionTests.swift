@@ -82,6 +82,36 @@ import Testing
     #expect(c.entries == ["a"])
 }
 
+// MARK: - replaceAll
+
+@Test func replaceAllStripsTheLeadingLinePrefix() {
+    var c = Composition()
+    c.add("a")
+    c.add("b")
+    c.replaceAll(with: c.composed)
+    #expect(c.entries == ["a\n- b"])
+    #expect(c.composed == "- a\n- b")
+}
+
+@Test func replaceAllCollapsesEntriesToOneAndUndoRestoresThem() {
+    var c = Composition()
+    c.add("a")
+    c.add("b")
+    c.pointUp()
+    c.replaceAll(with: "whole new prompt")
+    #expect(c.entries == ["whole new prompt"])
+    #expect(c.point == nil)
+    c.undo()
+    #expect(c.entries == ["a", "b"])
+    #expect(c.point == 1)
+}
+
+@Test func replaceAllOnEmptyIsNoop() {
+    var c = Composition()
+    c.replaceAll(with: "x")
+    #expect(c.entries.isEmpty)
+}
+
 // MARK: - move
 
 @Test func moveEntryForwardPutsPointPastIt() {
