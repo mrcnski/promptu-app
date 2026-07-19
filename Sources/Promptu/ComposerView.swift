@@ -26,13 +26,6 @@ struct ComposerView: View {
     private nonisolated static let previewSpace = "preview"
     private nonisolated static let viewportSpace = "previewViewport"
 
-    /// One preview text line (the rows' monospaced body font), sizing
-    /// the strip a row's grip icon centers in.
-    private nonisolated static let previewLine: CGFloat = {
-        let font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-        return font.ascender - font.descender + font.leading
-    }()
-
     private var theme: Theme { themeChoice.theme(for: colorScheme) }
     private var fieldShown: Bool {
         session.pending != nil || session.editInput != nil || session.draft != nil
@@ -197,10 +190,8 @@ struct ComposerView: View {
     }
 
     /// An entry's line(s), bulleted like the composed prompt, with a
-    /// full-height reorder grip overlaid on the trailing edge. The
-    /// grip's icon centers on the entry's first line: its strip is
-    /// pinned to the top, so a re-measure of the row (selectable text
-    /// can settle a beat late) can't move it.
+    /// full-height reorder grip overlaid on the trailing edge, its
+    /// icon centered on the row.
     private func entryRow(_ row: PreviewRow) -> some View {
         HStack(spacing: 0) {
             Text(Compose.linePrefix() + row.text)
@@ -211,7 +202,7 @@ struct ComposerView: View {
             Grip(theme: theme).hidden()
         }
         .overlay(alignment: .trailing) {
-            Grip(theme: theme, firstLine: Self.previewLine)
+            Grip(theme: theme)
                 .gesture(
                     reorderGesture(
                         $drag, id: row.id, space: Self.previewSpace, order: entryIDs,

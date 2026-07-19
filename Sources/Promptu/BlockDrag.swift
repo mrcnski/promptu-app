@@ -4,21 +4,16 @@ import SwiftUI
 /// The ≡ icon marking a draggable row; the drag itself is attached by
 /// the caller. Fills whatever height it is proposed, so an overlaid
 /// grip catches clicks across the row's full height, not just the
-/// icon's. When the row's height can reflow, pass `firstLine` to
-/// center the icon within a top-pinned strip of that height — the
-/// row's first line — where a full-height-centered icon would jump
-/// with every re-measure.
+/// icon's.
 struct Grip: View {
     let theme: Theme
-    var firstLine: CGFloat? = nil
 
     var body: some View {
         Image(systemName: "line.3.horizontal")
             .font(.caption)
             .foregroundStyle(theme.dimmed)
             .padding(.horizontal, 6)
-            .frame(height: firstLine)
-            .frame(maxHeight: .infinity, alignment: firstLine == nil ? .center : .top)
+            .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
     }
 }
