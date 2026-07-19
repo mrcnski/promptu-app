@@ -14,6 +14,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let popover = NSPopover()
     private var hotKey: HotKey?
     private let session = Session()
+    /// Set while close() waits out the popover's close animation: the
+    /// app hides — handing focus back — only once it has played,
+    /// where hiding immediately would cut it to a blink.
+    private var hideWhenClosed = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // LSUIElement covers bundled runs; this also covers `swift run`.
@@ -121,6 +125,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// cheap and idempotent, so just always do it on close.
     func popoverDidClose(_ notification: Notification) {
         registerHotKey()
+        if hideWhenClosed {
+            hideWhenClosed = false
+            NSApp.hide(nil)
+        }
     }
 
     private func open() {
@@ -142,9 +150,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     /// Closes the panel and hands focus back to the previous app, so a
-    /// finished prompt can be pasted immediately.
+    /// finished prompt can be pasted immediately. The hide waits for
+    /// the close animation (see popoverDidClose) — hiding here would
+    /// cut it to a blink.
     private func close() {
+        guard popover.isShown else { return NSApp.hide(nil) }
+        hideWhenClosed = true
         popover.performClose(nil)
-        NSApp.hide(nil)
     }
 }
