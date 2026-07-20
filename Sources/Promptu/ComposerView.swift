@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ComposerView: View {
     @ObservedObject var session: Session
+    @ObservedObject var updateChecker: UpdateChecker
     /// Closes the hosting popover; injected because the view is hosted
     /// in an NSPopover, outside any SwiftUI presentation context.
     let close: () -> Void
@@ -33,11 +34,14 @@ struct ComposerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if let update = updateChecker.available {
+                updateNotice(update)
+            }
             if session.screen == .editor {
                 pageRow
                 BlockEditorView(session: session, theme: theme, fieldFocused: $fieldFocused)
             } else if session.screen == .settings {
-                SettingsView(theme: theme)
+                SettingsView(theme: theme, updateChecker: updateChecker)
             } else if let error = session.loadError {
                 preview
                 Text(error).foregroundStyle(theme.error).font(.caption)
@@ -233,6 +237,30 @@ struct ComposerView: View {
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// A dismissible banner, atop every screen, linking to a newer
+    /// release on GitHub. Raised by the once-a-day update check.
+    private func updateNotice(_ update: UpdateChecker.Update) -> some View {
+        HStack(spacing: 6) {
+            Button { NSWorkspace.shared.open(update.url) } label: {
+                Text("v\(update.version) available →")
+                    .font(.caption.bold())
+                    .foregroundStyle(theme.foreground)
+            }
+            .buttonStyle(HoverButtonStyle(theme: theme, horizontalPadding: 4))
+            Spacer()
+            Button { updateChecker.dismiss() } label: {
+                Text("✕").font(.caption).foregroundStyle(theme.dimmed)
+            }
+            .buttonStyle(HoverButtonStyle(theme: theme, horizontalPadding: 4))
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(theme.notice.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(theme.notice.opacity(0.3)))
     }
 
     private func pageArrow(_ label: String, _ delta: Int) -> some View {

@@ -7,7 +7,9 @@ import SwiftUI
 /// hotkey, and launch at login.
 struct SettingsView: View {
     let theme: Theme
+    @ObservedObject var updateChecker: UpdateChecker
     @AppStorage(ThemeChoice.defaultsKey) private var themeChoice = ThemeChoice.system
+    @State private var updateCheckOn = false
     @State private var hotKeyDisplay = HotKeySpec.load().display
     @State private var recording = false
     @State private var recordingError: String?
@@ -82,8 +84,24 @@ struct SettingsView: View {
             if let error = loginError {
                 Text(error).font(.caption).foregroundStyle(theme.error)
             }
+
+            Text("check for updates").font(.caption).foregroundStyle(theme.dimmed)
+            HStack(spacing: 2) {
+                ForEach([true, false], id: \.self) { on in
+                    Button {
+                        updateChecker.setEnabled(on)
+                        updateCheckOn = on
+                    } label: {
+                        Text(on ? "on" : "off")
+                            .font(on == updateCheckOn ? .callout.bold() : .callout)
+                            .foregroundStyle(on == updateCheckOn ? theme.key : theme.dimmed)
+                    }
+                    .buttonStyle(HoverButtonStyle(theme: theme))
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear { updateCheckOn = updateChecker.enabled }
         .onDisappear { stopRecording() }
     }
 

@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import Combine
 import ServiceManagement
 import SwiftUI
 
@@ -14,6 +15,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let popover = NSPopover()
     private var hotKey: HotKey?
     private let session = Session()
+    private let updateChecker = UpdateChecker()
+    private var updateObserver: AnyCancellable?
+    /// A small dot on the status icon, shown while an update is
+    /// available, overlaid as a subview so the icon stays a template
+    /// image that tints with the menubar.
+    private let updateDot: NSView = {
+        let dot = NSView(frame: NSRect(x: 0, y: 0, width: 6, height: 6))
+        dot.wantsLayer = true
+        dot.layer?.backgroundColor =
+            NSColor(red: 0.87, green: 0.56, blue: 0.11, alpha: 1).cgColor  // yellow
+        dot.layer?.cornerRadius = 3
+        dot.isHidden = true
+        return dot
+    }()
     /// Set while close() waits out the popover's close animation: the
     /// app hides — handing focus back — only once it has played,
     /// where hiding immediately would cut it to a blink.
@@ -37,12 +52,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             systemSymbolName: "square.stack.3d.up", accessibilityDescription: "Promptu")
         statusItem.button?.action = #selector(toggle)
         statusItem.button?.target = self
+        if let button = statusItem.button {
+            button.addSubview(updateDot)
+            updateDot.frame.origin = NSPoint(x: button.bounds.maxX - 8, y: button.bounds.maxY - 8)
+            updateDot.autoresizingMask = [.minXMargin, .minYMargin]
+        }
+
+        // Reflect an available update onto the status badge.
+        updateObserver = updateChecker.$available.sink { [weak self] update in
+            self?.updateDot.isHidden = update == nil
+        }
 
         popover.behavior = .transient
         popover.delegate = self
         let hosting = NSHostingController(
-            rootView: ComposerView(session: session) { [weak self] in
-                self?.close()
+            rootView: ComposerView(session: session, updateChecker: updateChecker) {
+                [weak self] in self?.close()
             })
         // Track the SwiftUI ideal size, so the popover grows and shrinks
         // with the preview instead of staying at its first-shown size.
@@ -60,6 +85,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.hotKey = nil }
         }
+
+        updateChecker.checkIfDue()
     }
 
     /// Editing shortcuts (⌘C, ⌘V, ⌘A, undo…) only work when a main menu
@@ -133,6 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         hideWhenClosed = false
         DispatchQueue.main.async { [weak self] in
             self?.registerHotKey()
+            self?.updateChecker.panelDidClose()
             if hide { NSApp.hide(nil) }
         }
     }
@@ -141,6 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         guard let button = statusItem.button else { return }
         // Re-read per open/close, so the settings toggle applies live.
         popover.animates = Motion.enabled
+        updateChecker.panelWillOpen()
         // A wedged (shown-but-invisible) popover must be fully closed
         // before show, or show is a no-op against the phantom.
         if popover.isShown { popover.performClose(nil) }

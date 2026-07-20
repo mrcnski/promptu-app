@@ -11,6 +11,9 @@ struct Theme {
     let key: Color
     let placeholder: Color
     let error: Color
+    /// A calm accent for low-stakes attention (the update notice) —
+    /// distinct from key (action) and error (problem).
+    let notice: Color
 
     /// Catppuccin Latte (light).
     static let latte = Theme(
@@ -21,7 +24,8 @@ struct Theme {
         hover: Color(hex: 0xCCD0DA),  // surface0
         key: Color(hex: 0x1E66F5),  // blue
         placeholder: Color(hex: 0xFE640B),  // peach
-        error: Color(hex: 0xD20F39))  // red
+        error: Color(hex: 0xD20F39),  // red
+        notice: Color(hex: 0xDF8E1D))  // yellow
 
     /// Nimbus (dark).
     static let nimbus = Theme(
@@ -32,7 +36,8 @@ struct Theme {
         hover: Color(hex: 0x2B2B2B),  // gray-bg
         key: Color(hex: 0x70A5E1),  // light-blue
         placeholder: Color(hex: 0xDB931F),  // orange
-        error: Color(hex: 0xD65946))  // red
+        error: Color(hex: 0xD65946),  // red
+        notice: Color(hex: 0xD4BB6A))  // muted yellow
 
     static func matching(_ scheme: ColorScheme) -> Theme {
         scheme == .dark ? .nimbus : .latte
