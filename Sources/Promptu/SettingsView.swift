@@ -3,8 +3,8 @@ import Carbon.HIToolbox
 import ServiceManagement
 import SwiftUI
 
-/// In-popover settings: the theme choice, the global hotkey, and
-/// launch at login.
+/// In-popover settings: the theme choice, animations, the global
+/// hotkey, and launch at login.
 struct SettingsView: View {
     let theme: Theme
     @AppStorage(ThemeChoice.defaultsKey) private var themeChoice = ThemeChoice.system
@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var monitor: Any?
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
+    @State private var animationsOn = Motion.enabled
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -24,6 +25,21 @@ struct SettingsView: View {
                         Text(choice.rawValue)
                             .font(choice == themeChoice ? .callout.bold() : .callout)
                             .foregroundStyle(choice == themeChoice ? theme.key : theme.dimmed)
+                    }
+                    .buttonStyle(HoverButtonStyle(theme: theme))
+                }
+            }
+
+            Text("animations").font(.caption).foregroundStyle(theme.dimmed)
+            HStack(spacing: 2) {
+                ForEach([true, false], id: \.self) { on in
+                    Button {
+                        Motion.enabled = on
+                        animationsOn = on
+                    } label: {
+                        Text(on ? "on" : "off")
+                            .font(on == animationsOn ? .callout.bold() : .callout)
+                            .foregroundStyle(on == animationsOn ? theme.key : theme.dimmed)
                     }
                     .buttonStyle(HoverButtonStyle(theme: theme))
                 }

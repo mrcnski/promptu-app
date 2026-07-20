@@ -120,7 +120,7 @@ struct ComposerView: View {
                     }
                 }
                 .coordinateSpace(name: Self.previewSpace)
-                .animation(ReorderDrag.settle, value: entryDragTarget)
+                .animation(Motion.gated(ReorderDrag.settle), value: entryDragTarget)
                 .onPreferenceChange(ReorderFrameKey.self) { drag.measure($0) }
                 .onGeometryChange(for: CGRect.self) {
                     $0.frame(in: .named(Self.viewportSpace))
@@ -175,7 +175,7 @@ struct ComposerView: View {
         .frame(height: 14)
         .allowsHitTesting(false)
         .opacity(clipped ? 1 : 0)
-        .animation(.easeInOut(duration: 0.15), value: clipped)
+        .animation(Motion.gated(.easeInOut(duration: 0.15)), value: clipped)
     }
 
     private static let markerID: AnyHashable = "marker"

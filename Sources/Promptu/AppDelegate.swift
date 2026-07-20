@@ -133,6 +133,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private func open() {
         guard let button = statusItem.button else { return }
+        // Re-read per open/close, so the settings toggle applies live.
+        popover.animates = Motion.enabled
         // A wedged (shown-but-invisible) popover must be fully closed
         // before show, or show is a no-op against the phantom.
         if popover.isShown { popover.performClose(nil) }
@@ -155,6 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// cut it to a blink.
     private func close() {
         guard popover.isShown else { return NSApp.hide(nil) }
+        popover.animates = Motion.enabled
         hideWhenClosed = true
         popover.performClose(nil)
     }

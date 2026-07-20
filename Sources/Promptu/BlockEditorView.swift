@@ -44,7 +44,7 @@ struct BlockEditorView: View {
                     }
                 }
                 .coordinateSpace(name: Self.space)
-                .animation(ReorderDrag.settle, value: dragTarget)
+                .animation(Motion.gated(ReorderDrag.settle), value: dragTarget)
                 .onPreferenceChange(ReorderFrameKey.self) { drag.measure($0) }
             }
             .frame(maxHeight: 380)

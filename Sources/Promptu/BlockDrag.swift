@@ -69,7 +69,7 @@ func reorderGesture(
         }
         .onEnded { _ in
             let state = drag.wrappedValue
-            withAnimation(ReorderDrag.settle) {
+            withAnimation(Motion.gated(ReorderDrag.settle)) {
                 if let dragged = state.draggingID, let from = order.firstIndex(of: dragged),
                     let to = state.target(in: order)
                 {
